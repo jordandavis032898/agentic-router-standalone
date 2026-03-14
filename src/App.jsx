@@ -1,0 +1,267 @@
+import { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import Sidebar from './components/Sidebar'
+import Header from './components/Header'
+import DocumentPanel from './components/DocumentPanel'
+import ChatPanel from './components/ChatPanel'
+import ExtractPanel from './components/ExtractPanel'
+import PdfExtractPanel from './components/PdfExtractPanel'
+import EdgarPanel from './components/EdgarPanel'
+import { Toaster } from './components/Toast'
+
+// API Configuration
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+
+// User ID management - generate and store in localStorage
+const getUserId = () => {
+  const STORAGE_KEY = 'agentic_router_user_id'
+  let userId = localStorage.getItem(STORAGE_KEY)
+  if (!userId) {
+    // Generate a simple user ID
+    userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    localStorage.setItem(STORAGE_KEY, userId)
+  }
+  return userId
+}
+
+function App() {
+  const [activeTab, setActiveTab] = useState('documents')
+  const [documents, setDocuments] = useState([])
+  const [selectedDocument, setSelectedDocument] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [toasts, setToasts] = useState([])
+  const [filters, setFilters] = useState({})
+  const [selectedFilters, setSelectedFilters] = useState({})
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [userId] = useState(() => getUserId()) // Get user_id once on mount
+
+  // Toast notification helper
+  const addToast = (message, type = 'info') => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type }])
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id))
+    }, 4000)
+  }
+
+  // Fetch documents from Qdrant via API
+  const fetchDocuments = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/documents`)
+      const data = await response.json()
+      
+      if (response.ok && data.success && data.data?.documents) {
+        setDocuments(data.data.documents)
+        console.log(`Loaded ${data.data.total} documents from Qdrant`)
+      }
+    } catch (error) {
+      console.error('Failed to fetch documents:', error)
+      // Don't show error toast on initial load, just log it
+    }
+  }, [])
+
+  // Fetch available filters
+  const fetchFilters = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/filters`)
+      const data = await response.json()
+      
+      if (response.ok && data.success && data.data?.filters) {
+        setFilters(data.data.filters)
+        console.log('Available filters:', data.data.available_fields)
+      }
+    } catch (error) {
+      console.error('Failed to fetch filters:', error)
+    }
+  }, [])
+
+  // Load documents and filters on mount
+  useEffect(() => {
+    const init = async () => {
+      setIsInitialLoading(true)
+      await Promise.all([fetchDocuments(), fetchFilters()])
+      setIsInitialLoading(false)
+    }
+    init()
+  }, [fetchDocuments, fetchFilters])
+
+  const handleUpload = async (file) => {
+    setIsLoading(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('user_id', userId) // Add user_id to form data
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        const newDoc = {
+          file_id: data.data?.file_id || data.data?.hash,
+          hash: data.data?.hash,
+          title: file.name,
+          source: file.name,
+          upload_date: new Date().toISOString().split('T')[0],
+          size: file.size,
+          ...data.data
+        }
+        
+        setDocuments(prev => {
+          // Check if document already exists (by hash)
+          const exists = prev.some(d => d.hash === newDoc.hash || d.file_id === newDoc.file_id)
+          if (exists) {
+            return prev
+          }
+          return [...prev, newDoc]
+        })
+        setSelectedDocument(newDoc.file_id || newDoc.hash)
+        addToast(`"${file.name}" uploaded successfully!`, 'success')
+        
+        // Refresh documents list after a short delay (for embedding to complete)
+        setTimeout(() => fetchDocuments(), 2000)
+      } else {
+        addToast(data.error || data.detail || 'Upload failed', 'error')
+      }
+    } catch (error) {
+      addToast('Failed to upload document', 'error')
+      console.error('Upload error:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDelete = async (fileId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/${fileId}`, {
+        method: 'DELETE',
+      })
+      
+      // Remove from local state regardless of API response
+      setDocuments(prev => prev.filter(d => d.file_id !== fileId && d.hash !== fileId))
+      if (selectedDocument === fileId) {
+        setSelectedDocument(null)
+      }
+      
+      if (response.ok) {
+        addToast('Document deleted', 'success')
+      } else {
+        addToast('Document removed from list', 'info')
+      }
+    } catch (error) {
+      setDocuments(prev => prev.filter(d => d.file_id !== fileId && d.hash !== fileId))
+      if (selectedDocument === fileId) {
+        setSelectedDocument(null)
+      }
+      addToast('Document removed from list', 'info')
+    }
+  }
+
+  const handleFilterChange = (field, value) => {
+    setSelectedFilters(prev => {
+      if (value === null || value === '') {
+        const { [field]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [field]: value }
+    })
+  }
+
+  const     tabComponents = {
+    chat: <ChatPanel 
+      apiUrl={API_BASE_URL} 
+      selectedDocument={selectedDocument}
+      documents={documents}
+      filters={filters}
+      selectedFilters={selectedFilters}
+      onFilterChange={handleFilterChange}
+      addToast={addToast}
+      userId={userId}
+    />,
+    extract: <ExtractPanel
+      apiUrl={API_BASE_URL}
+      selectedDocument={selectedDocument}
+      documents={documents}
+      addToast={addToast}
+    />,
+    'pdf-extract': <PdfExtractPanel
+      apiUrl={API_BASE_URL}
+      selectedDocument={selectedDocument}
+      documents={documents}
+      addToast={addToast}
+    />,
+    edgar: <EdgarPanel 
+      apiUrl={API_BASE_URL}
+      addToast={addToast}
+    />,
+    documents: <DocumentPanel 
+      documents={documents}
+      selectedDocument={selectedDocument}
+      setSelectedDocument={setSelectedDocument}
+      onUpload={handleUpload}
+      onDelete={handleDelete}
+      isLoading={isLoading}
+      onRefresh={fetchDocuments}
+    />,
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex' }}>
+      {/* Background effects */}
+      <div className="bg-grid" style={{ position: 'fixed', inset: 0, opacity: 0.3, pointerEvents: 'none' }} />
+      
+      {/* Sidebar */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab}
+        documentsCount={documents.length}
+      />
+      
+      {/* Main content */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginLeft: '256px' }}>
+        <Header 
+          activeTab={activeTab}
+          selectedDocument={selectedDocument}
+          documents={documents}
+        />
+        
+        <main style={{ flex: 1, padding: '1.5rem', overflow: 'auto' }}>
+          {isInitialLoading ? (
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                border: '3px solid rgba(59, 130, 246, 0.3)',
+                borderTopColor: '#3b82f6',
+                animation: 'spin 1s linear infinite',
+              }} />
+              <p style={{ color: '#94a3b8', marginTop: '1rem' }}>Loading documents...</p>
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="h-full"
+              >
+                {tabComponents[activeTab]}
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </main>
+      </div>
+
+      {/* Toast notifications */}
+      <Toaster toasts={toasts} />
+    </div>
+  )
+}
+
+export default App

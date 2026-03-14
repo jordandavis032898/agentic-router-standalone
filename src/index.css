@@ -1,0 +1,639 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* Custom theme */
+@theme {
+  --color-midnight-50: #e6f0f5;
+  --color-midnight-100: #cce1eb;
+  --color-midnight-200: #99c3d7;
+  --color-midnight-300: #66a5c3;
+  --color-midnight-400: #3387af;
+  --color-midnight-500: #00699b;
+  --color-midnight-600: #00547c;
+  --color-midnight-700: #003f5d;
+  --color-midnight-800: #002a3e;
+  --color-midnight-900: #0a1628;
+  --color-midnight-950: #060d17;
+
+  --color-electric-400: #60a5fa;
+  --color-electric-500: #3b82f6;
+  --color-electric-600: #2563eb;
+
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+
+  --color-coral-400: #fb7185;
+  --color-coral-500: #f43f5e;
+
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* ─── Theme CSS Variables ──────────────────────────────────────────────────── */
+/* Dark mode is the default */
+
+:root {
+  --text-primary: #ffffff;
+  --text-secondary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --border-secondary: rgba(100, 116, 139, 0.3);
+  --bg-hover: rgba(10, 22, 40, 0.5);
+  --bg-icon: rgba(10, 22, 40, 0.5);
+  --bg-toggle: rgba(10, 22, 40, 0.5);
+}
+
+html.light-mode {
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --border-secondary: rgba(203, 213, 225, 0.6);
+  --bg-hover: rgba(241, 245, 249, 0.7);
+  --bg-icon: rgba(241, 245, 249, 0.8);
+  --bg-toggle: rgba(241, 245, 249, 0.8);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: linear-gradient(135deg, #060d17 0%, #0a1628 50%, #002a3e 100%);
+  min-height: 100vh;
+  color: #e2e8f0;
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(10, 22, 40, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.6);
+}
+
+/* Glass morphism effects */
+.glass {
+  background: rgba(10, 22, 40, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.glass-light {
+  background: rgba(30, 58, 95, 0.3);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #60a5fa 0%, #34d399 50%, #60a5fa 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient 3s linear infinite;
+}
+
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.btn-primary {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(to right, #3b82f6, #2563eb);
+  color: white;
+  font-weight: 500;
+  border-radius: 0.75rem;
+  transition: all 0.3s;
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.25);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(to right, #60a5fa, #3b82f6);
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+  transform: scale(1.02);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 0.75rem 1.5rem;
+  background: rgba(10, 22, 40, 0.7);
+  backdrop-filter: blur(20px);
+  color: #e2e8f0;
+  font-weight: 500;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(100, 116, 139, 0.5);
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  background: rgba(30, 58, 95, 0.5);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(10, 22, 40, 0.5);
+  border: 1px solid rgba(100, 116, 139, 0.5);
+  border-radius: 0.75rem;
+  color: #e2e8f0;
+  transition: all 0.3s;
+}
+
+.input-field::placeholder {
+  color: #64748b;
+}
+
+.input-field:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: rgba(59, 130, 246, 0.5);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.card {
+  background: rgba(10, 22, 40, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s;
+}
+
+.card:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Animated background grid */
+.bg-grid {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(30 58 95 / 0.4)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+}
+
+/* Chat bubble styles */
+.chat-bubble-user {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 20px 20px 4px 20px;
+}
+
+.chat-bubble-assistant {
+  background: rgba(30, 58, 95, 0.5);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 20px 20px 20px 4px;
+}
+
+/* File drop zone */
+.dropzone {
+  border: 2px dashed rgba(100, 116, 139, 0.5);
+  border-radius: 1rem;
+  padding: 2rem;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.dropzone:hover,
+.dropzone.active {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+/* Typing indicator */
+.typing-dot {
+  animation: typing 1.4s infinite ease-in-out both;
+}
+
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+.typing-dot:nth-child(3) { animation-delay: 0s; }
+
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Pulse ring animation */
+.pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Prose styles for markdown */
+.prose {
+  color: #e2e8f0;
+}
+
+.prose strong {
+  color: white;
+  font-weight: 600;
+}
+
+.prose p {
+  margin-bottom: 0.5rem;
+}
+
+.prose ul, .prose ol {
+  padding-left: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose li {
+  margin-bottom: 0.25rem;
+}
+
+.prose code {
+  background: rgba(10, 22, 40, 0.5);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+/* ─── Company Directory ────────────────────────────────────────────────────── */
+
+.company-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.company-card:hover {
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  background: rgba(30, 58, 95, 0.4) !important;
+}
+
+.company-search-input:focus {
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.company-search-input::placeholder {
+  color: #64748b;
+}
+
+/* Category chips scrollbar */
+.category-chips::-webkit-scrollbar {
+  height: 4px;
+}
+
+.category-chips::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 2px;
+}
+
+/* ─── Charts Grid ──────────────────────────────────────────────────────────── */
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+.chart-card canvas {
+  max-width: 100% !important;
+}
+
+/* ─── Light Mode Overrides ─────────────────────────────────────────────────── */
+
+html.light-mode body {
+  background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 50%, #dbeafe 100%);
+  color: #334155;
+}
+
+html.light-mode ::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.8);
+}
+
+html.light-mode ::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+html.light-mode .glass {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(203, 213, 225, 0.5);
+}
+
+html.light-mode .glass-light {
+  background: rgba(241, 245, 249, 0.7);
+  border-color: rgba(203, 213, 225, 0.3);
+}
+
+html.light-mode .card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(203, 213, 225, 0.4);
+}
+
+html.light-mode .card:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+html.light-mode .btn-secondary {
+  background: rgba(255, 255, 255, 0.8);
+  color: #334155;
+  border-color: rgba(203, 213, 225, 0.5);
+}
+
+html.light-mode .btn-secondary:hover {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+html.light-mode .input-field {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(203, 213, 225, 0.5);
+  color: #1e293b;
+}
+
+html.light-mode .input-field::placeholder {
+  color: #94a3b8;
+}
+
+html.light-mode .bg-grid {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(59 130 246 / 0.08)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+}
+
+html.light-mode .chat-bubble-assistant {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: rgba(203, 213, 225, 0.4);
+  color: #334155;
+}
+
+html.light-mode .dropzone {
+  border-color: rgba(203, 213, 225, 0.6);
+}
+
+html.light-mode .dropzone:hover,
+html.light-mode .dropzone.active {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+html.light-mode .prose {
+  color: #334155;
+}
+
+html.light-mode .prose strong {
+  color: #0f172a;
+}
+
+html.light-mode .prose code {
+  background: rgba(241, 245, 249, 0.8);
+  color: #1e293b;
+}
+
+/* Company directory light mode */
+html.light-mode .company-card {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border-color: rgba(203, 213, 225, 0.3) !important;
+}
+
+html.light-mode .company-card:hover {
+  background: rgba(241, 245, 249, 0.95) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+html.light-mode .company-search-input {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(203, 213, 225, 0.5) !important;
+  color: #1e293b !important;
+}
+
+/* Broad overrides for inline styles in light mode */
+html.light-mode input,
+html.light-mode textarea {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(203, 213, 225, 0.5) !important;
+  color: #1e293b !important;
+}
+
+html.light-mode input::placeholder,
+html.light-mode textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.light-mode h1, html.light-mode h2, html.light-mode h3, html.light-mode h4 {
+  color: var(--text-primary);
+}
+
+/* Override sidebar nav button hover in light mode */
+html.light-mode .sidebar-nav-btn:hover {
+  background: rgba(241, 245, 249, 0.8) !important;
+}
+
+/* ─── Mobile responsive ─────────────────────────────────────────────────────── */
+
+/* Hide desktop sidebar on mobile */
+@media (max-width: 768px) {
+  .sidebar-nav {
+    display: none !important;
+  }
+
+  .company-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .company-card {
+    padding: 0.75rem !important;
+    gap: 0.625rem !important;
+  }
+
+  .category-chips {
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+
+  .category-chips > button {
+    scroll-snap-align: start;
+    touch-action: manipulation;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .card {
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+
+  /* Prevent body scroll when bottom nav is present */
+  body {
+    overscroll-behavior: none;
+  }
+
+  /* Ensure all buttons respond instantly to taps */
+  button, a, [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@media (max-width: 480px) {
+  .company-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Mobile bottom nav ────────────────────────────────────────────────────── */
+
+.mobile-bottom-nav {
+  backdrop-filter: blur(20px);
+}
+
+html.light-mode .mobile-bottom-nav {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-top-color: rgba(203, 213, 225, 0.5) !important;
+}
+
+/* ─── Magician Widget ──────────────────────────────────────────────────────── */
+
+.magician-widget-btn {
+  animation: magician-pulse 2.5s ease-in-out infinite;
+}
+
+.magician-widget-btn:hover {
+  animation: none;
+}
+
+@keyframes magician-pulse {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4), 0 0 40px rgba(245, 158, 11, 0.15);
+  }
+  50% {
+    box-shadow: 0 4px 30px rgba(245, 158, 11, 0.6), 0 0 60px rgba(245, 158, 11, 0.25);
+  }
+}
+
+.magician-typing {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.magician-typing .typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  animation: magician-dot 1.4s infinite ease-in-out both;
+}
+
+.magician-typing .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.magician-typing .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+.magician-typing .typing-dot:nth-child(3) { animation-delay: 0s; }
+
+@keyframes magician-dot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Light mode: Magician panel */
+html.light-mode .magician-widget-btn {
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3), 0 0 30px rgba(245, 158, 11, 0.1);
+}
+
+/* ─── Mobile refinements ───────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* Bigger tap targets on mobile */
+  .company-grid button,
+  .category-chips button {
+    min-height: 44px;
+  }
+
+  /* Full-width charts on mobile */
+  canvas {
+    max-height: 280px !important;
+  }
+
+  /* Ensure the Magician panel takes full screen on mobile */
+  .magician-widget-btn {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  /* Prevent iOS auto-zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Hide desktop elements on mobile when mobile app is active */
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* ─── Mobile app layout ──────────────────────────────────────────────────────── */
+
+/* Show mobile app only on small screens */
+@media (min-width: 769px) {
+  .mobile-app {
+    display: none !important;
+  }
+}
+
+/* Pull-to-refresh animation */
+@keyframes mobile-pull-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Shimmer animation for skeleton loading */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
