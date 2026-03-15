@@ -101,13 +101,13 @@ function App() {
       
       if (response.ok && data.success) {
         const newDoc = {
+          ...data.data,
           file_id: data.data?.file_id || data.data?.hash,
           hash: data.data?.hash,
           title: file.name,
           source: file.name,
           upload_date: new Date().toISOString().split('T')[0],
           size: file.size,
-          ...data.data
         }
         
         setDocuments(prev => {
@@ -160,6 +160,20 @@ function App() {
     }
   }
 
+  const handleDeleteAll = async () => {
+    const docs = [...documents]
+    setDocuments([])
+    setSelectedDocument(null)
+    addToast(`Cleared ${docs.length} document(s)`, 'success')
+    // Fire delete requests in background
+    for (const doc of docs) {
+      const fileId = doc.file_id || doc.hash
+      if (fileId) {
+        try { await fetch(`${API_BASE_URL}/files/${fileId}`, { method: 'DELETE' }) } catch {}
+      }
+    }
+  }
+
   const handleFilterChange = (field, value) => {
     setSelectedFilters(prev => {
       if (value === null || value === '') {
@@ -197,12 +211,13 @@ function App() {
       apiUrl={API_BASE_URL}
       addToast={addToast}
     />,
-    documents: <DocumentPanel 
+    documents: <DocumentPanel
       documents={documents}
       selectedDocument={selectedDocument}
       setSelectedDocument={setSelectedDocument}
       onUpload={handleUpload}
       onDelete={handleDelete}
+      onDeleteAll={handleDeleteAll}
       isLoading={isLoading}
       onRefresh={fetchDocuments}
     />,

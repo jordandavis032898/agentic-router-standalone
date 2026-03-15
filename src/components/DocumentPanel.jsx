@@ -14,12 +14,13 @@ import {
   User
 } from 'lucide-react'
 
-export default function DocumentPanel({ 
-  documents, 
-  selectedDocument, 
-  setSelectedDocument, 
-  onUpload, 
+export default function DocumentPanel({
+  documents,
+  selectedDocument,
+  setSelectedDocument,
+  onUpload,
   onDelete,
+  onDeleteAll,
   isLoading,
   onRefresh
 }) {
@@ -146,13 +147,35 @@ export default function DocumentPanel({
               }}
               title="Refresh documents list"
             >
-              <RefreshCw style={{ 
-                width: '16px', 
-                height: '16px', 
+              <RefreshCw style={{
+                width: '16px',
+                height: '16px',
                 color: '#60a5fa',
                 animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
               }} />
             </button>
+            {documents.length > 0 && onDeleteAll && (
+              <button
+                onClick={onDeleteAll}
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '6px',
+                  background: 'rgba(244, 63, 94, 0.1)',
+                  border: '1px solid rgba(244, 63, 94, 0.2)',
+                  color: '#fb7185',
+                  cursor: 'pointer',
+                  fontSize: '0.7rem',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                }}
+                title="Clear all documents"
+              >
+                <Trash2 style={{ width: '12px', height: '12px' }} />
+                Clear All
+              </button>
+            )}
           </div>
         </div>
 
