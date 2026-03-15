@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   Sparkles, 
   FileText, 
@@ -213,12 +213,12 @@ function ExtractedTableCard({ table, index, isExpanded, onToggle }) {
 }
 
 export default function ExtractPanel({ apiUrl, selectedDocument, documents, addToast }) {
-  const [pageIndices, setPageIndices] = useState('')
   const [extractedData, setExtractedData] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState(null)
   const [expandedTables, setExpandedTables] = useState({})
+  const lastExtractedDoc = useRef(null)
 
   const currentDoc = documents.find(d => d.file_id === selectedDocument || d.hash === selectedDocument)
 
@@ -229,38 +229,20 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
     }))
   }
 
-  const handleExtract = async () => {
-    if (!selectedDocument) {
-      addToast('Please select a document first', 'warning')
-      return
-    }
-
-    // Parse page indices - required field
-    const indices = pageIndices
-      .split(',')
-      .map(s => parseInt(s.trim()))
-      .filter(n => !isNaN(n))
-
-    if (indices.length === 0) {
-      addToast('Please enter at least one page number (e.g., 1, 2, 3)', 'warning')
-      return
-    }
-
+  const runExtraction = async (docId, pageCount) => {
     setIsLoading(true)
     setExtractedData(null)
     setError(null)
     setExpandedTables({})
 
+    // Build page indices array: [0, 1, 2, ..., n-1]
+    const maxPages = Math.min(pageCount || 20, 50) // cap at 50 pages
+    const indices = Array.from({ length: maxPages }, (_, i) => i)
+
     try {
-      const payload = {
-        file_id: selectedDocument,
-        page_indices: indices
-      }
+      const payload = { file_id: docId, page_indices: indices }
+      console.log('Auto-extract request:', payload)
 
-      console.log('Extract request:', payload)
-
-      // DATA CALL: USER-TRIGGERED
-      // Triggered by: user clicks Extract button with page numbers
       const response = await fetch(`${apiUrl}/extract`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -272,7 +254,6 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
 
       if (response.ok && data.success) {
         setExtractedData(data.data)
-        // Expand first table by default
         if (data.data?.extracted_tables?.length > 0) {
           setExpandedTables({ 0: true })
         }
@@ -280,7 +261,7 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
       } else {
         const errorMsg = data.detail?.message || data.error || data.detail || 'Extraction failed'
         setError(errorMsg)
-        addToast(`Extraction could not complete`, 'warning')
+        addToast('Extraction could not complete', 'warning')
       }
     } catch (err) {
       console.error('Extract error:', err)
@@ -290,6 +271,16 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
       setIsLoading(false)
     }
   }
+
+  // Auto-extract when a document is selected
+  useEffect(() => {
+    if (!selectedDocument || selectedDocument === lastExtractedDoc.current) return
+    lastExtractedDoc.current = selectedDocument
+
+    const doc = documents.find(d => d.file_id === selectedDocument || d.hash === selectedDocument)
+    const pageCount = doc?.pages_count || doc?.filtered_pages_count || 20
+    runExtraction(selectedDocument, pageCount)
+  }, [selectedDocument])
 
   const handleCopy = () => {
     if (extractedData) {
@@ -385,58 +376,65 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
             )}
           </div>
 
-          {/* Page indices - required */}
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.5rem', display: 'block' }}>
-              Page Numbers <span style={{ color: '#fb7185' }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={pageIndices}
-              onChange={(e) => setPageIndices(e.target.value)}
-              placeholder="e.g., 1, 2, 3"
-              style={{
-                width: '100%',
-                padding: '0.75rem 1rem',
-                background: 'rgba(10, 22, 40, 0.5)',
-                border: '1px solid rgba(100, 116, 139, 0.5)',
-                borderRadius: '10px',
-                color: 'white',
-                fontSize: '1rem',
-                boxSizing: 'border-box',
-              }}
-            />
-            <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.375rem' }}>
-              Enter page numbers (comma-separated)
-            </p>
-          </div>
-
-          <button
-            onClick={handleExtract}
-            disabled={isLoading || !selectedDocument}
-            className="btn-primary"
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              opacity: (isLoading || !selectedDocument) ? 0.5 : 1,
-              cursor: (isLoading || !selectedDocument) ? 'not-allowed' : 'pointer',
-            }}
-          >
+          {/* Auto-extraction status */}
+          <div style={{
+            padding: '0.75rem',
+            borderRadius: '10px',
+            background: isLoading
+              ? 'rgba(59, 130, 246, 0.1)'
+              : extractedData
+                ? 'rgba(16, 185, 129, 0.1)'
+                : 'rgba(10, 22, 40, 0.3)',
+            border: `1px solid ${isLoading
+              ? 'rgba(59, 130, 246, 0.2)'
+              : extractedData
+                ? 'rgba(16, 185, 129, 0.2)'
+                : 'rgba(100, 116, 139, 0.2)'}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+          }}>
             {isLoading ? (
               <>
-                <Loader2 style={{ width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />
-                Extracting...
+                <Loader2 style={{ width: '18px', height: '18px', color: '#60a5fa', animation: 'spin 1s linear infinite' }} />
+                <span style={{ fontSize: '0.8rem', color: '#93c5fd' }}>Extracting all pages automatically...</span>
+              </>
+            ) : extractedData ? (
+              <>
+                <CheckCircle style={{ width: '18px', height: '18px', color: '#34d399' }} />
+                <span style={{ fontSize: '0.8rem', color: '#34d399' }}>Extraction complete</span>
               </>
             ) : (
               <>
-                <Sparkles style={{ width: '20px', height: '20px' }} />
-                Extract Information
+                <Sparkles style={{ width: '18px', height: '18px', color: '#64748b' }} />
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Select a document to auto-extract</span>
               </>
             )}
-          </button>
+          </div>
+
+          {/* Re-extract button */}
+          {selectedDocument && !isLoading && (
+            <button
+              onClick={() => {
+                lastExtractedDoc.current = null
+                const doc = documents.find(d => d.file_id === selectedDocument || d.hash === selectedDocument)
+                const pageCount = doc?.pages_count || doc?.filtered_pages_count || 20
+                runExtraction(selectedDocument, pageCount)
+              }}
+              className="btn-primary"
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                marginTop: '0.5rem',
+              }}
+            >
+              <Sparkles style={{ width: '20px', height: '20px' }} />
+              Re-extract
+            </button>
+          )}
         </div>
 
         {/* Tips */}
@@ -450,7 +448,7 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
             Tips
           </h4>
           <ul style={{ fontSize: '0.75rem', color: '#94a3b8', listStyle: 'none', padding: 0, margin: 0 }}>
-            <li style={{ marginBottom: '0.375rem' }}>• Extract tables and structured data</li>
+            <li style={{ marginBottom: '0.375rem' }}>• Automatically extracts all pages</li>
             <li style={{ marginBottom: '0.375rem' }}>• Works best with financial documents</li>
             <li>• Export results as JSON</li>
           </ul>
@@ -602,7 +600,7 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
                 </div>
                 <p style={{ color: '#94a3b8' }}>No extraction results yet</p>
                 <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.25rem' }}>
-                  Select a document and enter page numbers to extract
+                  Upload or select a document to auto-extract
                 </p>
               </div>
             )}
