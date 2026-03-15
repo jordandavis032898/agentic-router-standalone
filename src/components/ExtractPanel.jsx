@@ -31,11 +31,126 @@ const renderValue = (value) => {
   return String(value)
 }
 
+// Render tabular data as a proper HTML table
+function DataTable({ data }) {
+  if (!Array.isArray(data) || data.length === 0) return null
+
+  // If array of objects, render as table with headers
+  if (typeof data[0] === 'object' && data[0] !== null && !Array.isArray(data[0])) {
+    const headers = Object.keys(data[0])
+    return (
+      <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+          <thead>
+            <tr style={{ background: 'rgba(30, 58, 95, 0.6)' }}>
+              {headers.map((key, idx) => (
+                <th key={idx} style={{
+                  textAlign: 'left',
+                  padding: '0.625rem 0.75rem',
+                  borderBottom: '2px solid rgba(59, 130, 246, 0.4)',
+                  borderRight: idx < headers.length - 1 ? '1px solid rgba(100, 116, 139, 0.2)' : 'none',
+                  color: '#93c5fd',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  fontSize: '0.75rem',
+                  textTransform: 'capitalize',
+                }}>
+                  {key.replace(/_/g, ' ')}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.slice(0, 100).map((row, rowIdx) => (
+              <tr key={rowIdx} style={{
+                background: rowIdx % 2 === 0 ? 'rgba(10, 22, 40, 0.3)' : 'rgba(15, 30, 55, 0.3)',
+                transition: 'background 0.15s',
+              }}>
+                {headers.map((key, valIdx) => (
+                  <td key={valIdx} style={{
+                    padding: '0.5rem 0.75rem',
+                    borderBottom: '1px solid rgba(100, 116, 139, 0.15)',
+                    borderRight: valIdx < headers.length - 1 ? '1px solid rgba(100, 116, 139, 0.1)' : 'none',
+                    color: '#e2e8f0',
+                    fontSize: '0.8rem',
+                  }}>
+                    {renderValue(row[key])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data.length > 100 && (
+          <p style={{ fontSize: '0.7rem', color: '#64748b', padding: '0.5rem', textAlign: 'center', background: 'rgba(10, 22, 40, 0.3)' }}>
+            Showing first 100 of {data.length} rows
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  // If array of arrays, render as table without named headers
+  if (Array.isArray(data[0])) {
+    return (
+      <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+          <tbody>
+            {data.slice(0, 100).map((row, rowIdx) => (
+              <tr key={rowIdx} style={{
+                background: rowIdx === 0
+                  ? 'rgba(30, 58, 95, 0.6)'
+                  : rowIdx % 2 === 0 ? 'rgba(10, 22, 40, 0.3)' : 'rgba(15, 30, 55, 0.3)',
+              }}>
+                {(Array.isArray(row) ? row : [row]).map((val, valIdx) => {
+                  const CellTag = rowIdx === 0 ? 'th' : 'td'
+                  return (
+                    <CellTag key={valIdx} style={{
+                      padding: '0.5rem 0.75rem',
+                      borderBottom: rowIdx === 0 ? '2px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(100, 116, 139, 0.15)',
+                      borderRight: valIdx < (Array.isArray(row) ? row : [row]).length - 1 ? '1px solid rgba(100, 116, 139, 0.1)' : 'none',
+                      color: rowIdx === 0 ? '#93c5fd' : '#e2e8f0',
+                      fontWeight: rowIdx === 0 ? 600 : 400,
+                      fontSize: rowIdx === 0 ? '0.75rem' : '0.8rem',
+                      textAlign: 'left',
+                    }}>
+                      {renderValue(val)}
+                    </CellTag>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  // Flat array - render as single-column table
+  return (
+    <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+        <tbody>
+          {data.slice(0, 100).map((val, idx) => (
+            <tr key={idx} style={{ background: idx % 2 === 0 ? 'rgba(10, 22, 40, 0.3)' : 'rgba(15, 30, 55, 0.3)' }}>
+              <td style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid rgba(100, 116, 139, 0.15)', color: '#e2e8f0' }}>
+                {renderValue(val)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // Component to render a single extracted table
 function ExtractedTableCard({ table, index, isExpanded, onToggle }) {
+  const [metadataOpen, setMetadataOpen] = useState(false)
   const isSuccess = table.extraction_status === 'success'
   const pageNum = table.page_number || table.page_index + 1
-  
+  const rowCount = Array.isArray(table.data) ? table.data.length : 0
+
   return (
     <div style={{
       marginBottom: '1rem',
@@ -70,16 +185,16 @@ function ExtractedTableCard({ table, index, isExpanded, onToggle }) {
               Page {pageNum}
             </span>
             <span style={{ fontSize: '0.75rem', color: isSuccess ? '#34d399' : '#fb7185' }}>
-              {isSuccess ? 'Extraction successful' : 'Extraction failed'}
+              {isSuccess ? `${rowCount} row${rowCount !== 1 ? 's' : ''} extracted` : 'Extraction failed'}
             </span>
           </div>
         </div>
-        {isExpanded ? 
+        {isExpanded ?
           <ChevronDown style={{ width: '20px', height: '20px', color: '#94a3b8' }} /> :
           <ChevronRight style={{ width: '20px', height: '20px', color: '#94a3b8' }} />
         }
       </button>
-      
+
       {/* Content */}
       {isExpanded && (
         <div style={{ padding: '1rem' }}>
@@ -97,104 +212,57 @@ function ExtractedTableCard({ table, index, isExpanded, onToggle }) {
                   <p style={{ fontSize: '0.875rem', color: '#93c5fd' }}>{table.explanation}</p>
                 </div>
               )}
-              
-              {/* Table metadata */}
+
+              {/* Collapsible Table Metadata */}
               {table.table_metadata && (
-                <div style={{
-                  marginBottom: '1rem',
-                  padding: '0.75rem',
-                  borderRadius: '8px',
-                  background: 'rgba(10, 22, 40, 0.5)',
-                }}>
-                  <h5 style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 500 }}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <button
+                    onClick={() => setMetadataOpen(!metadataOpen)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 0.75rem',
+                      background: 'rgba(10, 22, 40, 0.5)',
+                      border: '1px solid rgba(100, 116, 139, 0.2)',
+                      borderRadius: '8px',
+                      color: '#94a3b8',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                      width: '100%',
+                    }}
+                  >
+                    {metadataOpen ?
+                      <ChevronDown style={{ width: '14px', height: '14px' }} /> :
+                      <ChevronRight style={{ width: '14px', height: '14px' }} />
+                    }
                     Table Metadata
-                  </h5>
-                  <pre style={{
-                    fontSize: '0.7rem',
-                    color: '#cbd5e1',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    whiteSpace: 'pre-wrap',
-                    margin: 0,
-                  }}>
-                    {renderValue(table.table_metadata)}
-                  </pre>
+                  </button>
+                  {metadataOpen && (
+                    <div style={{
+                      marginTop: '0.5rem',
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      background: 'rgba(10, 22, 40, 0.5)',
+                      border: '1px solid rgba(100, 116, 139, 0.15)',
+                    }}>
+                      <pre style={{
+                        fontSize: '0.7rem',
+                        color: '#cbd5e1',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        whiteSpace: 'pre-wrap',
+                        margin: 0,
+                      }}>
+                        {renderValue(table.table_metadata)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
-              
-              {/* Extracted Data */}
-              <div style={{
-                padding: '0.75rem',
-                borderRadius: '8px',
-                background: 'rgba(15, 23, 42, 0.5)',
-                border: '1px solid rgba(100, 116, 139, 0.2)',
-              }}>
-                <h5 style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.75rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Table style={{ width: '14px', height: '14px' }} />
-                  Extracted Data
-                </h5>
-                
-                {/* Try to render as table if it's tabular data */}
-                {Array.isArray(table.data) && table.data.length > 0 && typeof table.data[0] === 'object' ? (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ 
-                      width: '100%', 
-                      borderCollapse: 'collapse',
-                      fontSize: '0.75rem',
-                    }}>
-                      <thead>
-                        <tr>
-                          {Object.keys(table.data[0]).map((key, idx) => (
-                            <th key={idx} style={{
-                              textAlign: 'left',
-                              padding: '0.5rem',
-                              borderBottom: '1px solid rgba(100, 116, 139, 0.3)',
-                              color: '#94a3b8',
-                              fontWeight: 500,
-                              whiteSpace: 'nowrap',
-                            }}>
-                              {key}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {table.data.slice(0, 50).map((row, rowIdx) => (
-                          <tr key={rowIdx} style={{ background: rowIdx % 2 === 0 ? 'transparent' : 'rgba(10, 22, 40, 0.3)' }}>
-                            {Object.values(row).map((val, valIdx) => (
-                              <td key={valIdx} style={{
-                                padding: '0.5rem',
-                                borderBottom: '1px solid rgba(100, 116, 139, 0.1)',
-                                color: '#e2e8f0',
-                                fontSize: '0.75rem',
-                              }}>
-                                {renderValue(val)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {table.data.length > 50 && (
-                      <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.5rem', textAlign: 'center' }}>
-                        Showing first 50 of {table.data.length} rows
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <pre style={{
-                    fontSize: '0.7rem',
-                    color: '#cbd5e1',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    margin: 0,
-                    maxHeight: '300px',
-                    overflow: 'auto',
-                  }}>
-                    {renderValue(table.data)}
-                  </pre>
-                )}
-              </div>
+
+              {/* Rendered HTML Table */}
+              <DataTable data={table.data} />
             </div>
           ) : (
             <div style={{
