@@ -593,9 +593,9 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
         ) : (
           <>
             {/* Page selection grid */}
-            <div className="card" style={{ marginBottom: '1rem' }}>
+            <div className="card" style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column' }}>
               {/* Grid header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexShrink: 0 }}>
                 <div>
                   <h4 style={{ fontWeight: 600, color: 'white', fontSize: '0.9rem' }}>
                     Select Pages
@@ -623,25 +623,31 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
                 </div>
               </div>
 
-              {/* Grid */}
+              {/* Scrollable grid */}
               {pages.length > 0 ? (
                 <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                  gap: '0.75rem',
-                  marginBottom: '1rem',
+                  maxHeight: '55vh',
+                  overflowY: 'auto',
+                  marginBottom: '0.75rem',
+                  paddingRight: '0.25rem',
                 }}>
-                  {pages.map((page) => (
-                    <PageCard
-                      key={page.page_index}
-                      apiUrl={apiUrl}
-                      fileId={selectedDocument}
-                      pageIndex={page.page_index}
-                      pageNumber={page.page_number || page.display_page || page.page_index + 1}
-                      isSelected={selectedPages.has(page.page_index)}
-                      onToggle={() => togglePage(page.page_index)}
-                    />
-                  ))}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '0.75rem',
+                  }}>
+                    {pages.map((page) => (
+                      <PageCard
+                        key={page.page_index}
+                        apiUrl={apiUrl}
+                        fileId={selectedDocument}
+                        pageIndex={page.page_index}
+                        pageNumber={page.page_number > 0 ? page.page_number : page.page_index + 1}
+                        isSelected={selectedPages.has(page.page_index)}
+                        onToggle={() => togglePage(page.page_index)}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
@@ -650,13 +656,14 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
                 </div>
               )}
 
-              {/* Extract button */}
+              {/* Extract button - always visible at bottom */}
               <button
                 onClick={handleExtract}
                 disabled={isExtracting || selectedPages.size === 0}
                 className="btn-primary"
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  flexShrink: 0,
                   opacity: (isExtracting || selectedPages.size === 0) ? 0.5 : 1,
                   cursor: (isExtracting || selectedPages.size === 0) ? 'not-allowed' : 'pointer',
                 }}
