@@ -50,7 +50,7 @@ function App() {
   // Fetch documents from Qdrant via API
   const fetchDocuments = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/documents`)
+      const response = await fetch(`${API_BASE_URL}/documents?user_id=${encodeURIComponent(userId)}`)
       const data = await response.json()
       
       if (response.ok && data.success && data.data?.documents) {
@@ -73,7 +73,7 @@ function App() {
       console.error('Failed to fetch documents:', error)
       // Don't show error toast on initial load, just log it
     }
-  }, [])
+  }, [userId])
 
   // Fetch available filters
   const fetchFilters = useCallback(async () => {
