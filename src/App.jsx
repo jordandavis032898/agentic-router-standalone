@@ -36,6 +36,9 @@ const getUserId = () => {
 
 function App() {
   const [activeTab, setActiveTab] = useState(getTabFromHash)
+  if (!window.location.hash) {
+    window.location.replace('#documents')
+  }
   const [documents, setDocuments] = useState([])
   const [selectedDocument, setSelectedDocument] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
