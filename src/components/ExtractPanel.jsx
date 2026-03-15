@@ -211,8 +211,72 @@ function DataTable({ data }) {
   )
 }
 
+// Page thumbnail component
+function PageThumbnail({ apiUrl, fileId, pageIndex }) {
+  const [imgError, setImgError] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
+  if (imgError || !apiUrl || !fileId) return null
+
+  const src = `${apiUrl}/pages/${fileId}/${pageIndex}/preview`
+
+  return (
+    <>
+      <div
+        onClick={() => setExpanded(true)}
+        style={{
+          marginBottom: '1rem',
+          cursor: 'pointer',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          border: '1px solid rgba(100, 116, 139, 0.3)',
+          background: 'rgba(10, 22, 40, 0.5)',
+          display: 'inline-block',
+        }}
+      >
+        <img
+          src={src}
+          alt={`Page ${pageIndex + 1} preview`}
+          onError={() => setImgError(true)}
+          style={{
+            maxHeight: '200px',
+            width: 'auto',
+            display: 'block',
+          }}
+        />
+      </div>
+      {expanded && (
+        <div
+          onClick={() => setExpanded(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={src}
+            alt={`Page ${pageIndex + 1} full`}
+            style={{
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              borderRadius: '8px',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+            }}
+          />
+        </div>
+      )}
+    </>
+  )
+}
+
 // Component to render a single extracted table
-function ExtractedTableCard({ table, index, isExpanded, onToggle }) {
+function ExtractedTableCard({ table, index, isExpanded, onToggle, apiUrl, fileId }) {
   const [metadataOpen, setMetadataOpen] = useState(false)
   const isSuccess = table.extraction_status === 'success'
   const pageNum = table.page_number || table.page_index + 1
@@ -271,7 +335,10 @@ function ExtractedTableCard({ table, index, isExpanded, onToggle }) {
       {isExpanded && (
         <div style={{ padding: '1rem' }}>
           {isSuccess && table.data ? (
-            <div>
+            <div style={{ width: '100%', overflowX: 'auto' }}>
+              {/* Page thumbnail */}
+              <PageThumbnail apiUrl={apiUrl} fileId={fileId} pageIndex={table.page_index} />
+
               {/* Explanation if available */}
               {table.explanation && (
                 <div style={{
@@ -711,6 +778,8 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
                       index={index}
                       isExpanded={expandedTables[index] || false}
                       onToggle={() => toggleTable(index)}
+                      apiUrl={apiUrl}
+                      fileId={selectedDocument}
                     />
                   ))
                 ) : (
