@@ -534,6 +534,18 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Scrollbar styles */}
+      <style>{`
+        .page-grid::-webkit-scrollbar { width: 8px; }
+        .page-grid::-webkit-scrollbar-track { background: #1a1a2e; border-radius: 4px; }
+        .page-grid::-webkit-scrollbar-thumb { background: #4a6cf7; border-radius: 4px; }
+        .page-grid::-webkit-scrollbar-thumb:hover { background: #6b8cff; }
+        .results-panel::-webkit-scrollbar { width: 8px; }
+        .results-panel::-webkit-scrollbar-track { background: #1a1a2e; border-radius: 4px; }
+        .results-panel::-webkit-scrollbar-thumb { background: #4a6cf7; border-radius: 4px; }
+        .results-panel::-webkit-scrollbar-thumb:hover { background: #6b8cff; }
+      `}</style>
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexShrink: 0 }}>
         <div style={{
@@ -572,8 +584,8 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
         )}
       </div>
 
-      {/* Scrollable content area */}
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+      {/* Main content */}
+      <div style={{ flex: 1, minHeight: 0 }}>
         {!selectedDocument ? (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
             <div style={{
@@ -591,9 +603,10 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
             <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Loading pages...</p>
           </div>
         ) : (
-          <>
-            {/* Page selection grid */}
-            <div className="card" style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column' }}>
+          /* Two-panel layout: LEFT = page grid, RIGHT = results */
+          <div style={{ display: 'flex', gap: '1rem', height: '100%' }}>
+            {/* LEFT PANEL — Page selection (60%) */}
+            <div style={{ width: '60%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               {/* Grid header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexShrink: 0 }}>
                 <div>
@@ -625,12 +638,15 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
 
               {/* Scrollable grid */}
               {pages.length > 0 ? (
-                <div style={{
-                  maxHeight: '55vh',
-                  overflowY: 'auto',
-                  marginBottom: '0.75rem',
-                  paddingRight: '0.25rem',
-                }}>
+                <div
+                  className="page-grid"
+                  style={{
+                    height: 'calc(100vh - 250px)',
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    paddingRight: '4px',
+                  }}
+                >
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(2, 1fr)',
@@ -656,14 +672,14 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
                 </div>
               )}
 
-              {/* Extract button - always visible at bottom */}
+              {/* Extract button - fixed at bottom */}
               <button
                 onClick={handleExtract}
                 disabled={isExtracting || selectedPages.size === 0}
                 className="btn-primary"
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                  flexShrink: 0,
+                  flexShrink: 0, marginTop: '0.75rem',
                   opacity: (isExtracting || selectedPages.size === 0) ? 0.5 : 1,
                   cursor: (isExtracting || selectedPages.size === 0) ? 'not-allowed' : 'pointer',
                 }}
@@ -682,76 +698,97 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
               </button>
             </div>
 
-            {/* Extraction results */}
-            {isExtracting && (
-              <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-                <Loader2 style={{ width: '48px', height: '48px', color: '#60a5fa', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
-                <p style={{ color: 'white', fontWeight: 500 }}>Analyzing pages...</p>
-                <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '0.25rem' }}>This may take a moment for large documents</p>
-              </div>
-            )}
-
-            {error && (
-              <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-                <AlertCircle style={{ width: '32px', height: '32px', color: '#fb7185', margin: '0 auto 0.5rem' }} />
-                <p style={{ color: '#fb7185', fontWeight: 500 }}>Extraction Failed</p>
-                <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '0.5rem' }}>{error}</p>
-              </div>
-            )}
-
-            {extractedData && !isExtracting && (
-              <div className="card">
-                {/* Summary bar */}
-                <div style={{
-                  marginBottom: '1rem', padding: '1rem', borderRadius: '12px',
-                  background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)',
-                  display: 'flex', alignItems: 'center', gap: '1.5rem',
-                }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white' }}>{summary.total_pages_processed || 0}</p>
-                    <p style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Pages</p>
-                  </div>
-                  <div style={{ width: '1px', height: '40px', background: 'rgba(100, 116, 139, 0.3)' }} />
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34d399' }}>{summary.successful_extractions || 0}</p>
-                    <p style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Success</p>
-                  </div>
-                  <div style={{ width: '1px', height: '40px', background: 'rgba(100, 116, 139, 0.3)' }} />
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#fb7185' }}>{summary.failed_extractions || 0}</p>
-                    <p style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Failed</p>
-                  </div>
+            {/* RIGHT PANEL — Extraction results (40%) */}
+            <div
+              className="results-panel"
+              style={{
+                width: '40%',
+                height: 'calc(100vh - 180px)',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                paddingRight: '4px',
+              }}
+            >
+              {isExtracting && (
+                <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+                  <Loader2 style={{ width: '48px', height: '48px', color: '#60a5fa', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
+                  <p style={{ color: 'white', fontWeight: 500 }}>Analyzing pages...</p>
+                  <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '0.25rem' }}>This may take a moment</p>
                 </div>
+              )}
 
-                {/* Table results with dividers */}
-                {extractedTables.length > 0 ? (
-                  extractedTables.map((table, index) => (
-                    <div key={index}>
-                      {index > 0 && (
-                        <hr style={{
-                          border: 'none', borderTop: '1px solid rgba(100, 116, 139, 0.25)',
-                          margin: '1rem 0',
-                        }} />
-                      )}
-                      <ExtractedTableCard
-                        table={table}
-                        index={index}
-                        isExpanded={expandedTables[index] || false}
-                        onToggle={() => toggleTable(index)}
-                        apiUrl={apiUrl}
-                        fileId={selectedDocument}
-                      />
+              {error && (
+                <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+                  <AlertCircle style={{ width: '32px', height: '32px', color: '#fb7185', margin: '0 auto 0.5rem' }} />
+                  <p style={{ color: '#fb7185', fontWeight: 500 }}>Extraction Failed</p>
+                  <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '0.5rem' }}>{error}</p>
+                </div>
+              )}
+
+              {extractedData && !isExtracting ? (
+                <div className="card">
+                  {/* Summary bar */}
+                  <div style={{
+                    marginBottom: '1rem', padding: '1rem', borderRadius: '12px',
+                    background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)',
+                    display: 'flex', alignItems: 'center', gap: '1.5rem',
+                  }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white' }}>{summary.total_pages_processed || 0}</p>
+                      <p style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Pages</p>
                     </div>
-                  ))
-                ) : (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-                    <Table style={{ width: '32px', height: '32px', margin: '0 auto 0.5rem', opacity: 0.5 }} />
-                    <p>No tables extracted</p>
+                    <div style={{ width: '1px', height: '40px', background: 'rgba(100, 116, 139, 0.3)' }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34d399' }}>{summary.successful_extractions || 0}</p>
+                      <p style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Success</p>
+                    </div>
+                    <div style={{ width: '1px', height: '40px', background: 'rgba(100, 116, 139, 0.3)' }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#fb7185' }}>{summary.failed_extractions || 0}</p>
+                      <p style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Failed</p>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
-          </>
+
+                  {/* Table results with dividers */}
+                  {extractedTables.length > 0 ? (
+                    extractedTables.map((table, index) => (
+                      <div key={index}>
+                        {index > 0 && (
+                          <hr style={{
+                            border: 'none', borderTop: '1px solid rgba(100, 116, 139, 0.25)',
+                            margin: '1rem 0',
+                          }} />
+                        )}
+                        <ExtractedTableCard
+                          table={table}
+                          index={index}
+                          isExpanded={expandedTables[index] || false}
+                          onToggle={() => toggleTable(index)}
+                          apiUrl={apiUrl}
+                          fileId={selectedDocument}
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+                      <Table style={{ width: '32px', height: '32px', margin: '0 auto 0.5rem', opacity: 0.5 }} />
+                      <p>No tables extracted</p>
+                    </div>
+                  )}
+                </div>
+              ) : !isExtracting && !error && (
+                <div style={{
+                  height: '100%', display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+                  color: '#64748b', padding: '2rem',
+                }}>
+                  <Table style={{ width: '40px', height: '40px', opacity: 0.3, marginBottom: '1rem' }} />
+                  <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Extraction results will appear here</p>
+                  <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Select pages and click Extract</p>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
