@@ -343,7 +343,7 @@ function PageCard({ apiUrl, fileId, pageIndex, pageNumber, isSelected, onToggle 
 
       {/* Thumbnail */}
       <div style={{
-        height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'rgba(15, 23, 42, 0.5)', overflow: 'hidden',
       }}>
         {!imgError ? (
@@ -351,7 +351,7 @@ function PageCard({ apiUrl, fileId, pageIndex, pageNumber, isSelected, onToggle 
             src={src}
             alt={`Page ${pageNumber}`}
             onError={() => setImgError(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            style={{ width: '100%', maxHeight: '280px', objectFit: 'contain' }}
           />
         ) : (
           <Image style={{ width: '32px', height: '32px', color: '#475569' }} />
@@ -633,8 +633,8 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
                 }}>
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '0.75rem',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '16px',
                   }}>
                     {pages.map((page) => (
                       <PageCard
