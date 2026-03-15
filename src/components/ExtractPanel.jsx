@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Sparkles,
   FileText,
@@ -387,6 +387,50 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
   const [expandedTables, setExpandedTables] = useState({})
   const [copied, setCopied] = useState(false)
 
+  // Draggable divider
+  const [leftWidth, setLeftWidth] = useState(60) // percentage
+  const containerRef = useRef(null)
+  const isDragging = useRef(false)
+  const leftPanelRef = useRef(null)
+  const [gridCols, setGridCols] = useState(2)
+
+  // Switch grid to 1 column when left panel is narrow
+  useEffect(() => {
+    if (!leftPanelRef.current) return
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setGridCols(entry.contentRect.width < 400 ? 1 : 2)
+      }
+    })
+    ro.observe(leftPanelRef.current)
+    return () => ro.disconnect()
+  }, [selectedDocument, loadingPages])
+
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    isDragging.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMouseMove = (e) => {
+      if (!isDragging.current || !containerRef.current) return
+      const rect = containerRef.current.getBoundingClientRect()
+      const pct = ((e.clientX - rect.left) / rect.width) * 100
+      setLeftWidth(Math.min(70, Math.max(30, pct)))
+    }
+
+    const onMouseUp = () => {
+      isDragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [])
+
   const currentDoc = documents.find(d => d.file_id === selectedDocument || d.hash === selectedDocument)
 
   // Fetch pages when document changes
@@ -603,10 +647,10 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
             <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Loading pages...</p>
           </div>
         ) : (
-          /* Two-panel layout: LEFT = page grid, RIGHT = results */
-          <div style={{ display: 'flex', gap: '1rem', height: '100%' }}>
-            {/* LEFT PANEL — Page selection (60%) */}
-            <div style={{ width: '60%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          /* Two-panel layout: LEFT = page grid, DIVIDER, RIGHT = results */
+          <div ref={containerRef} style={{ display: 'flex', height: '100%' }}>
+            {/* LEFT PANEL — Page selection */}
+            <div ref={leftPanelRef} style={{ width: `${leftWidth}%`, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               {/* Grid header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexShrink: 0 }}>
                 <div>
@@ -649,7 +693,7 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
                 >
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
                     gap: '16px',
                   }}>
                     {pages.map((page) => (
@@ -698,14 +742,43 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
               </button>
             </div>
 
-            {/* RIGHT PANEL — Extraction results (40%) */}
+            {/* DRAGGABLE DIVIDER */}
+            <div
+              onMouseDown={handleMouseDown}
+              style={{
+                width: '8px',
+                flexShrink: 0,
+                cursor: 'col-resize',
+                background: 'rgba(100, 116, 139, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.15s',
+                borderRadius: '4px',
+                margin: '0 2px',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(74, 108, 247, 0.5)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(100, 116, 139, 0.25)'}
+            >
+              {/* Grip dots */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {[0, 1, 2, 3, 4].map(i => (
+                  <div key={i} style={{
+                    width: '3px', height: '3px', borderRadius: '50%',
+                    background: 'rgba(148, 163, 184, 0.6)',
+                  }} />
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT PANEL — Extraction results */}
             <div
               className="results-panel"
               style={{
-                width: '40%',
+                width: `calc(${100 - leftWidth}% - 12px)`,
                 height: 'calc(100vh - 180px)',
                 overflowY: 'auto',
-                overflowX: 'hidden',
+                overflowX: 'auto',
                 paddingRight: '4px',
               }}
             >
