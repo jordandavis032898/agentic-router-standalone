@@ -31,12 +31,121 @@ const renderValue = (value) => {
   return String(value)
 }
 
-// Render tabular data as a proper HTML table
-function DataTable({ data }) {
-  if (!Array.isArray(data) || data.length === 0) return null
+// Count total rows across all tables in the data dict
+function countRows(data) {
+  if (!data) return 0
+  const tables = data.tables || data.Tables || []
+  if (Array.isArray(tables)) {
+    return tables.reduce((sum, t) => sum + (Array.isArray(t.rows) ? t.rows.length : 0), 0)
+  }
+  return 0
+}
 
-  // If array of objects, render as table with headers
-  if (typeof data[0] === 'object' && data[0] !== null && !Array.isArray(data[0])) {
+// Render a single table with headers + rows format from backend
+function SingleTable({ tbl, tblIdx }) {
+  const headers = tbl.headers || tbl.Headers || []
+  const rows = tbl.rows || tbl.Rows || []
+  const title = tbl.title || tbl.Title || ''
+  const summary = tbl.summary || tbl.Summary || ''
+
+  return (
+    <div style={{ marginBottom: '1.25rem' }}>
+      {title && (
+        <h5 style={{
+          fontSize: '0.85rem',
+          fontWeight: 600,
+          color: '#e2e8f0',
+          marginBottom: '0.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+        }}>
+          <Table style={{ width: '14px', height: '14px', color: '#60a5fa' }} />
+          {title}
+        </h5>
+      )}
+      {summary && (
+        <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.5rem' }}>{summary}</p>
+      )}
+      <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+          {headers.length > 0 && (
+            <thead>
+              <tr style={{ background: 'rgba(30, 58, 95, 0.6)' }}>
+                {headers.map((h, idx) => (
+                  <th key={idx} style={{
+                    textAlign: 'left',
+                    padding: '0.625rem 0.75rem',
+                    borderBottom: '2px solid rgba(59, 130, 246, 0.4)',
+                    borderRight: idx < headers.length - 1 ? '1px solid rgba(100, 116, 139, 0.2)' : 'none',
+                    color: '#93c5fd',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    fontSize: '0.75rem',
+                  }}>
+                    {renderValue(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+          )}
+          <tbody>
+            {rows.slice(0, 100).map((row, rowIdx) => {
+              const cells = Array.isArray(row) ? row : Object.values(row)
+              return (
+                <tr key={rowIdx} style={{
+                  background: rowIdx % 2 === 0 ? 'rgba(10, 22, 40, 0.3)' : 'rgba(15, 30, 55, 0.3)',
+                }}>
+                  {cells.map((val, valIdx) => (
+                    <td key={valIdx} style={{
+                      padding: '0.5rem 0.75rem',
+                      borderBottom: '1px solid rgba(100, 116, 139, 0.15)',
+                      borderRight: valIdx < cells.length - 1 ? '1px solid rgba(100, 116, 139, 0.1)' : 'none',
+                      color: '#e2e8f0',
+                      fontSize: '0.8rem',
+                    }}>
+                      {renderValue(val)}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {rows.length > 100 && (
+          <p style={{ fontSize: '0.7rem', color: '#64748b', padding: '0.5rem', textAlign: 'center', background: 'rgba(10, 22, 40, 0.3)' }}>
+            Showing first 100 of {rows.length} rows
+          </p>
+        )}
+        {rows.length === 0 && (
+          <p style={{ fontSize: '0.8rem', color: '#64748b', padding: '1rem', textAlign: 'center' }}>
+            No rows in this table
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Render all tables from the backend data dict: { tables: [{ title, headers, rows, summary }] }
+function DataTable({ data }) {
+  if (!data) return null
+
+  // Backend format: data = { tables: [{ title, headers, rows, summary }] }
+  const tables = data.tables || data.Tables || []
+
+  if (Array.isArray(tables) && tables.length > 0) {
+    return (
+      <div>
+        {tables.map((tbl, idx) => (
+          <SingleTable key={idx} tbl={tbl} tblIdx={idx} />
+        ))}
+      </div>
+    )
+  }
+
+  // Fallback: if data is an array of objects (generic tabular)
+  if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'object') {
     const headers = Object.keys(data[0])
     return (
       <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
@@ -51,9 +160,7 @@ function DataTable({ data }) {
                   borderRight: idx < headers.length - 1 ? '1px solid rgba(100, 116, 139, 0.2)' : 'none',
                   color: '#93c5fd',
                   fontWeight: 600,
-                  whiteSpace: 'nowrap',
                   fontSize: '0.75rem',
-                  textTransform: 'capitalize',
                 }}>
                   {key.replace(/_/g, ' ')}
                 </th>
@@ -64,7 +171,6 @@ function DataTable({ data }) {
             {data.slice(0, 100).map((row, rowIdx) => (
               <tr key={rowIdx} style={{
                 background: rowIdx % 2 === 0 ? 'rgba(10, 22, 40, 0.3)' : 'rgba(15, 30, 55, 0.3)',
-                transition: 'background 0.15s',
               }}>
                 {headers.map((key, valIdx) => (
                   <td key={valIdx} style={{
@@ -81,66 +187,27 @@ function DataTable({ data }) {
             ))}
           </tbody>
         </table>
-        {data.length > 100 && (
-          <p style={{ fontSize: '0.7rem', color: '#64748b', padding: '0.5rem', textAlign: 'center', background: 'rgba(10, 22, 40, 0.3)' }}>
-            Showing first 100 of {data.length} rows
-          </p>
-        )}
       </div>
     )
   }
 
-  // If array of arrays, render as table without named headers
-  if (Array.isArray(data[0])) {
-    return (
-      <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-          <tbody>
-            {data.slice(0, 100).map((row, rowIdx) => (
-              <tr key={rowIdx} style={{
-                background: rowIdx === 0
-                  ? 'rgba(30, 58, 95, 0.6)'
-                  : rowIdx % 2 === 0 ? 'rgba(10, 22, 40, 0.3)' : 'rgba(15, 30, 55, 0.3)',
-              }}>
-                {(Array.isArray(row) ? row : [row]).map((val, valIdx) => {
-                  const CellTag = rowIdx === 0 ? 'th' : 'td'
-                  return (
-                    <CellTag key={valIdx} style={{
-                      padding: '0.5rem 0.75rem',
-                      borderBottom: rowIdx === 0 ? '2px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(100, 116, 139, 0.15)',
-                      borderRight: valIdx < (Array.isArray(row) ? row : [row]).length - 1 ? '1px solid rgba(100, 116, 139, 0.1)' : 'none',
-                      color: rowIdx === 0 ? '#93c5fd' : '#e2e8f0',
-                      fontWeight: rowIdx === 0 ? 600 : 400,
-                      fontSize: rowIdx === 0 ? '0.75rem' : '0.8rem',
-                      textAlign: 'left',
-                    }}>
-                      {renderValue(val)}
-                    </CellTag>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
-  }
-
-  // Flat array - render as single-column table
+  // Fallback: render as formatted text
   return (
-    <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-        <tbody>
-          {data.slice(0, 100).map((val, idx) => (
-            <tr key={idx} style={{ background: idx % 2 === 0 ? 'rgba(10, 22, 40, 0.3)' : 'rgba(15, 30, 55, 0.3)' }}>
-              <td style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid rgba(100, 116, 139, 0.15)', color: '#e2e8f0' }}>
-                {renderValue(val)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <pre style={{
+      fontSize: '0.75rem',
+      color: '#cbd5e1',
+      fontFamily: 'JetBrains Mono, monospace',
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word',
+      margin: 0,
+      padding: '0.75rem',
+      borderRadius: '8px',
+      background: 'rgba(10, 22, 40, 0.5)',
+      maxHeight: '300px',
+      overflow: 'auto',
+    }}>
+      {typeof data === 'string' ? data : JSON.stringify(data, null, 2)}
+    </pre>
   )
 }
 
@@ -149,7 +216,7 @@ function ExtractedTableCard({ table, index, isExpanded, onToggle }) {
   const [metadataOpen, setMetadataOpen] = useState(false)
   const isSuccess = table.extraction_status === 'success'
   const pageNum = table.page_number || table.page_index + 1
-  const rowCount = Array.isArray(table.data) ? table.data.length : 0
+  const rowCount = countRows(table.data)
 
   return (
     <div style={{
@@ -185,7 +252,12 @@ function ExtractedTableCard({ table, index, isExpanded, onToggle }) {
               Page {pageNum}
             </span>
             <span style={{ fontSize: '0.75rem', color: isSuccess ? '#34d399' : '#fb7185' }}>
-              {isSuccess ? `${rowCount} row${rowCount !== 1 ? 's' : ''} extracted` : 'Extraction failed'}
+              {isSuccess ? (() => {
+                const tblCount = (table.data?.tables || table.data?.Tables || []).length
+                return tblCount > 0
+                  ? `${tblCount} table${tblCount !== 1 ? 's' : ''}, ${rowCount} row${rowCount !== 1 ? 's' : ''}`
+                  : 'Extracted'
+              })() : 'Extraction failed'}
             </span>
           </div>
         </div>
