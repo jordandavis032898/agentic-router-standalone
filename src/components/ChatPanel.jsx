@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   Send,
   Bot,
@@ -266,7 +267,45 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
                     }}
                   >
                     <div style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          table: ({ children }) => (
+                            <div style={{ overflowX: 'auto', margin: '0.75rem 0', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                                {children}
+                              </table>
+                            </div>
+                          ),
+                          thead: ({ children }) => (
+                            <thead style={{ background: 'rgba(30, 58, 95, 0.6)' }}>{children}</thead>
+                          ),
+                          th: ({ children }) => (
+                            <th style={{
+                              textAlign: 'left',
+                              padding: '0.5rem 0.75rem',
+                              borderBottom: '2px solid rgba(59, 130, 246, 0.4)',
+                              borderRight: '1px solid rgba(100, 116, 139, 0.2)',
+                              color: '#93c5fd',
+                              fontWeight: 600,
+                              fontSize: '0.75rem',
+                              whiteSpace: 'nowrap',
+                            }}>{children}</th>
+                          ),
+                          td: ({ children }) => (
+                            <td style={{
+                              padding: '0.5rem 0.75rem',
+                              borderBottom: '1px solid rgba(100, 116, 139, 0.15)',
+                              borderRight: '1px solid rgba(100, 116, 139, 0.1)',
+                              color: '#e2e8f0',
+                              fontSize: '0.8rem',
+                            }}>{children}</td>
+                          ),
+                          tr: ({ children, isHeader }) => (
+                            <tr style={{ background: isHeader ? undefined : 'rgba(10, 22, 40, 0.3)' }}>{children}</tr>
+                          ),
+                        }}
+                      >{message.content}</ReactMarkdown>
                     </div>
 
                     {message.isCached && (
