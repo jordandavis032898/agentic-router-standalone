@@ -12,6 +12,22 @@ import { Toaster } from './components/Toast'
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
+// URL-based navigation helpers
+const VALID_TABS = ['chat', 'extract', 'pdf-extract', 'edgar', 'documents']
+const BASE = import.meta.env.BASE_URL || '/'
+
+const getTabFromPath = () => {
+  const segment = window.location.pathname
+    .replace(BASE, '')
+    .replace(/^\/+|\/+$/g, '')
+  return VALID_TABS.includes(segment) ? segment : 'documents'
+}
+
+const getPathForTab = (tab) => {
+  const base = BASE.endsWith('/') ? BASE : BASE + '/'
+  return tab === 'documents' ? base : `${base}${tab}`
+}
+
 // Check if a string looks like a UUID/hash (not a real filename)
 const looksLikeUuid = (s) => !s || /^[0-9a-f_-]{20,}$/i.test(s) || /^user_/.test(s)
 
@@ -28,7 +44,7 @@ const getUserId = () => {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState('documents')
+  const [activeTab, setActiveTab] = useState(getTabFromPath)
   const [documents, setDocuments] = useState([])
   const [selectedDocument, setSelectedDocument] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -37,6 +53,21 @@ function App() {
   const [selectedFilters, setSelectedFilters] = useState({})
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [userId] = useState(() => getUserId()) // Get user_id once on mount
+
+  // Navigate to tab: push to history + update state
+  const navigateToTab = useCallback((tab) => {
+    setActiveTab(tab)
+    window.history.pushState({ tab }, '', getPathForTab(tab))
+  }, [])
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const onPopState = () => setActiveTab(getTabFromPath())
+    window.addEventListener('popstate', onPopState)
+    // Replace current entry so initial load has state too
+    window.history.replaceState({ tab: activeTab }, '', getPathForTab(activeTab))
+    return () => window.removeEventListener('popstate', onPopState)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Toast notification helper
   const addToast = (message, type = 'info') => {
@@ -244,9 +275,9 @@ function App() {
       <div className="bg-grid" style={{ position: 'fixed', inset: 0, opacity: 0.3, pointerEvents: 'none' }} />
       
       {/* Sidebar */}
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab}
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={navigateToTab}
         documentsCount={documents.length}
       />
       
