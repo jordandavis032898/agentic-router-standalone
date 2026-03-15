@@ -12,20 +12,11 @@ import { Toaster } from './components/Toast'
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
-// URL-based navigation helpers
+// Hash-based navigation helpers
 const VALID_TABS = ['chat', 'extract', 'pdf-extract', 'edgar', 'documents']
-const BASE = import.meta.env.BASE_URL || '/'
-
-const getTabFromPath = () => {
-  const segment = window.location.pathname
-    .replace(BASE, '')
-    .replace(/^\/+|\/+$/g, '')
-  return VALID_TABS.includes(segment) ? segment : 'documents'
-}
-
-const getPathForTab = (tab) => {
-  const base = BASE.endsWith('/') ? BASE : BASE + '/'
-  return tab === 'documents' ? base : `${base}${tab}`
+const getTabFromHash = () => {
+  const hash = window.location.hash.replace('#', '') || 'documents'
+  return VALID_TABS.includes(hash) ? hash : 'documents'
 }
 
 // Check if a string looks like a UUID/hash (not a real filename)
@@ -44,7 +35,7 @@ const getUserId = () => {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState(getTabFromPath)
+  const [activeTab, setActiveTab] = useState(getTabFromHash)
   const [documents, setDocuments] = useState([])
   const [selectedDocument, setSelectedDocument] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -54,20 +45,17 @@ function App() {
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [userId] = useState(() => getUserId()) // Get user_id once on mount
 
-  // Navigate to tab: push to history + update state
+  // Navigate to tab: set hash (triggers hashchange → updates state)
   const navigateToTab = useCallback((tab) => {
-    setActiveTab(tab)
-    window.history.pushState({ tab }, '', getPathForTab(tab))
+    window.location.hash = tab
   }, [])
 
-  // Handle browser back/forward
+  // Handle browser back/forward via hashchange
   useEffect(() => {
-    const onPopState = () => setActiveTab(getTabFromPath())
-    window.addEventListener('popstate', onPopState)
-    // Replace current entry so initial load has state too
-    window.history.replaceState({ tab: activeTab }, '', getPathForTab(activeTab))
-    return () => window.removeEventListener('popstate', onPopState)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    const onHashChange = () => setActiveTab(getTabFromHash())
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
   // Toast notification helper
   const addToast = (message, type = 'info') => {
