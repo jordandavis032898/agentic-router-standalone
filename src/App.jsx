@@ -12,6 +12,9 @@ import { Toaster } from './components/Toast'
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
+// Check if a string looks like a UUID/hash (not a real filename)
+const looksLikeUuid = (s) => !s || /^[0-9a-f_-]{20,}$/i.test(s) || /^user_/.test(s)
+
 // User ID management - generate and store in localStorage
 const getUserId = () => {
   const STORAGE_KEY = 'agentic_router_user_id'
@@ -51,7 +54,19 @@ function App() {
       const data = await response.json()
       
       if (response.ok && data.success && data.data?.documents) {
-        setDocuments(data.data.documents)
+        setDocuments(prev => {
+          // Merge: keep locally-stored filenames for docs we already know about
+          const prevMap = new Map(prev.map(d => [d.file_id || d.hash, d]))
+          return data.data.documents.map(serverDoc => {
+            const id = serverDoc.file_id || serverDoc.hash
+            const local = prevMap.get(id)
+            if (local && local.title && !looksLikeUuid(local.title)) {
+              // Keep the good local title/source
+              return { ...serverDoc, title: local.title, source: local.source || local.title }
+            }
+            return serverDoc
+          })
+        })
         console.log(`Loaded ${data.data.total} documents from Qdrant`)
       }
     } catch (error) {

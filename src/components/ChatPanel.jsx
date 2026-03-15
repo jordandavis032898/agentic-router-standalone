@@ -126,9 +126,6 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
         const filtersApplied = data.data?.filters_applied
 
         let assistantMessage = answer
-        if (filtersApplied && Object.keys(filtersApplied).length > 0) {
-          assistantMessage += `\n\n_Filters applied: ${Object.entries(filtersApplied).map(([k, v]) => `${k}="${v}"`).join(', ')}_`
-        }
 
         // Cache the response
         setCache(userMessage, assistantMessage)
@@ -218,11 +215,14 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
       {/* Main chat area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Chat messages */}
-        <div style={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          paddingRight: '0.5rem',
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          paddingLeft: '1rem',
+          paddingRight: '1rem',
           paddingBottom: '1rem',
+          maxWidth: '100%',
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AnimatePresence initial={false}>
@@ -254,25 +254,27 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
                     </div>
                   )}
                   
-                  <div 
+                  <div
                     style={{
                       maxWidth: '80%',
+                      minWidth: 0,
                       padding: '1rem 1.25rem',
                       borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                      background: message.role === 'user' 
-                        ? 'linear-gradient(to bottom right, #3b82f6, #2563eb)' 
+                      background: message.role === 'user'
+                        ? 'linear-gradient(to bottom right, #3b82f6, #2563eb)'
                         : 'rgba(30, 41, 59, 0.8)',
                       border: message.isError ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(100, 116, 139, 0.2)',
                       color: 'white',
+                      overflow: 'hidden',
                     }}
                   >
-                    <div style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
+                    <div style={{ fontSize: '0.9rem', lineHeight: 1.6, overflowX: 'auto', width: '100%', maxWidth: '100%' }}>
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
                           table: ({ children }) => (
-                            <div style={{ overflowX: 'auto', margin: '0.75rem 0', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                            <div style={{ overflowX: 'auto', width: '100%', maxWidth: '100%', margin: '0.75rem 0', borderRadius: '8px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '400px' }}>
                                 {children}
                               </table>
                             </div>

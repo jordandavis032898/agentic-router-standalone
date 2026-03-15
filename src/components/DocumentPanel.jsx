@@ -252,7 +252,14 @@ export default function DocumentPanel({
                           whiteSpace: 'nowrap',
                           fontSize: '0.9rem',
                         }}>
-                          {doc.title || doc.source || 'Untitled Document'}
+                          {(() => {
+                            const t = doc.title || doc.source || ''
+                            // Hide UUID-like titles, show a friendly fallback
+                            if (!t || /^[0-9a-f_-]{20,}$/i.test(t) || /^user_/.test(t)) {
+                              return doc.upload_date ? `Document (${doc.upload_date})` : 'Uploaded Document'
+                            }
+                            return t
+                          })()}
                         </h4>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.375rem', flexWrap: 'wrap' }}>
                           {doc.company && doc.company !== 'Unknown' && doc.company !== 'unknown' && (
