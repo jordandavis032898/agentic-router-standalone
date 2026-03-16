@@ -280,7 +280,7 @@ function App() {
       />
       
       {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginLeft: '256px' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginLeft: '258px' }}>
         <Header 
           activeTab={activeTab}
           selectedDocument={selectedDocument}

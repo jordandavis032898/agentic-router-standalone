@@ -114,15 +114,22 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
         }
       }
 
-      // Build payload with filters
-      const payload = {
-        question: questionToSend,
-        user_id: userId // Add user_id (required for new RAG implementation)
+      // Guard: /query requires file_id — bail if no document is selected
+      if (!selectedDocument) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: 'Please select or upload a document first so I know which file to query.',
+        }])
+        setIsLoading(false)
+        inputRef.current?.focus()
+        return
       }
 
-      // Add file_id if a document is selected
-      if (selectedDocument) {
-        payload.file_id = selectedDocument
+      // Build payload — file_id and user_id are both required by the backend
+      const payload = {
+        question: questionToSend,
+        user_id: userId,
+        file_id: selectedDocument,
       }
 
       // Add metadata filters if any are selected
@@ -130,7 +137,7 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
         payload.filters = selectedFilters
       }
 
-      console.log('Query payload:', payload)
+      console.log('Query payload:', JSON.stringify(payload, null, 2))
 
       // MERLIN API CALL: USER-TRIGGERED
       // Triggered by: user types a message and clicks Go / presses Enter
@@ -170,7 +177,7 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
         const retryRes = await fetch(`${apiUrl}/query`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: userMessage, user_id: userId }),
+          body: JSON.stringify({ question: questionToSend, user_id: userId, file_id: selectedDocument }),
         })
         const retryData = await retryRes.json()
         if (retryRes.ok && retryData.success) {
@@ -439,41 +446,21 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
           </div>
         </div>
 
-        {/* Extraction context banner */}
+        {/* Extraction context banner — text only */}
         {extractionContext && extractionContext.file_id === selectedDocument && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.75rem',
-            padding: '0.625rem 0.75rem',
+            gap: '0.5rem',
+            padding: '0.5rem 0.75rem',
             marginBottom: '0.5rem',
             borderRadius: '10px',
             background: 'rgba(245, 158, 11, 0.1)',
             border: '1px solid rgba(245, 158, 11, 0.25)',
-            flexWrap: 'wrap',
           }}>
             <span style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: 500 }}>
               📊 {extractionContext.page_count} page{extractionContext.page_count !== 1 ? 's' : ''} extracted — ask questions about the tables
             </span>
-            <button
-              type="button"
-              onClick={() => handleSuggestedPrompt('Summarize the extracted tables')}
-              disabled={isLoading}
-              style={{
-                marginLeft: 'auto',
-                padding: '0.3rem 0.75rem',
-                borderRadius: '20px',
-                background: 'rgba(245, 158, 11, 0.15)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
-                color: '#fbbf24',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Summarize the extracted tables
-            </button>
           </div>
         )}
 
@@ -604,6 +591,29 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Suggested prompt chip — shown when extraction context exists */}
+        {extractionContext && extractionContext.file_id === selectedDocument && !merlinOffline && (
+          <div style={{ marginBottom: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={() => handleSuggestedPrompt('Summarize the extracted tables')}
+              disabled={isLoading}
+              style={{
+                padding: '0.375rem 0.75rem',
+                borderRadius: '20px',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                color: '#fbbf24',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              ✨ Summarize the extracted tables
+            </button>
           </div>
         )}
 
