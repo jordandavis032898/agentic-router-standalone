@@ -787,6 +787,7 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
               className="results-panel"
               style={{
                 width: `calc(${100 - leftWidth}% - 12px)`,
+                minWidth: 0,
                 height: 'calc(100vh - 180px)',
                 overflowY: 'auto',
                 overflowX: 'auto',
@@ -810,7 +811,7 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
               )}
 
               {extractedData && !isExtracting ? (
-                <div className="card">
+                <div className="card" style={{ minWidth: 0, overflow: 'hidden' }}>
                   {/* Summary bar */}
                   <div style={{
                     marginBottom: '1rem', padding: '1rem', borderRadius: '12px',
@@ -839,6 +840,7 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
                       onClick={() => navigateToTab('chat')}
                       style={{
                         width: '100%',
+                        boxSizing: 'border-box',
                         marginBottom: '1rem',
                         padding: '0.625rem 1rem',
                         display: 'flex',
