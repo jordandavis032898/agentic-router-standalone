@@ -516,6 +516,7 @@ button:disabled {
 }
 .extract-table-scroll {
   overflow-x: scroll;
+  max-width: 100%;
 }
 .extract-table {
   min-width: max-content;
