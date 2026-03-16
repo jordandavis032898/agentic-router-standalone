@@ -348,6 +348,7 @@ export default function App() {
         : 'Ask or run a command…';
 
   const showChatInput = (activeTab === 'edgar' || activeTab === 'rag') && activeTab !== 'admin';
+  const extractResultsFullScreen = activeTab === 'extract' && extractionResults != null;
 
   if (!user) {
     return <Auth onAuthenticated={handleAuthenticated} />;
@@ -422,58 +423,56 @@ export default function App() {
                   </p>
                 </div>
               )}
-              {fileId && (
+              {fileId && extractionResults && (
                 <>
-                  {extractionResults && (
-                    <>
-                      <div style={{ marginBottom: '12px' }}>
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          onClick={() => setExtractionResults(null)}
-                          style={{ fontSize: '13px', padding: '6px 14px' }}
-                        >
-                          ← Back to page selection
-                        </button>
-                      </div>
-                      <ExtractorTables extractedTables={extractionResults} fileId={fileId} />
-                    </>
-                  )}
-                  <div style={{ marginTop: extractionResults ? '24px' : undefined }}>
-                    {!extractionResults && currentMessages.length === 0 && (
-                      <div className="msg-row">
-                        <SystemBubble text={`Document "${filename || 'PDF'}" ready. Select pages to extract below.`} />
-                      </div>
-                    )}
-                    {!extractionResults && currentMessages.map((msg) => (
-                      <div key={msg.id} className="msg-row msg-row-animate">
-                        <MessageBlock
-                          msg={msg}
-                          onError={showToast}
-                          workspaceActiveId={activeWorkspaceId}
-                          onOpenWorkspace={setActiveWorkspaceId}
-                          addWorkspaceItem={addWorkspaceItem}
-                        />
-                      </div>
-                    ))}
+                  <div style={{ marginBottom: '12px' }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setExtractionResults(null)}
+                      style={{ fontSize: '13px', padding: '6px 14px' }}
+                    >
+                      ← Back to page selection
+                    </button>
+                  </div>
+                  <ExtractorTables extractedTables={extractionResults} fileId={fileId} />
+                </>
+              )}
+              {fileId && !extractionResults && (
+                <>
+                  {currentMessages.length === 0 && (
                     <div className="msg-row">
-                      <div className="output-card">
-                        <ExtractorFlow
-                          fileId={fileId}
-                          onError={(msg) => showToast(msg, true)}
-                          showResultsInWorkspace
-                          onExtractionComplete={(extractedTables) => {
-                            setExtractionResults(extractedTables);
-                            const id = addWorkspaceItem({
-                              type: 'extractor',
-                              title: 'Extracted tables',
-                              extractedTables,
-                              fileId,
-                            });
-                            setActiveWorkspaceId(id);
-                          }}
-                        />
-                      </div>
+                      <SystemBubble text={`Document "${filename || 'PDF'}" ready. Select pages to extract below.`} />
+                    </div>
+                  )}
+                  {currentMessages.map((msg) => (
+                    <div key={msg.id} className="msg-row msg-row-animate">
+                      <MessageBlock
+                        msg={msg}
+                        onError={showToast}
+                        workspaceActiveId={activeWorkspaceId}
+                        onOpenWorkspace={setActiveWorkspaceId}
+                        addWorkspaceItem={addWorkspaceItem}
+                      />
+                    </div>
+                  ))}
+                  <div className="msg-row">
+                    <div className="output-card">
+                      <ExtractorFlow
+                        fileId={fileId}
+                        onError={(msg) => showToast(msg, true)}
+                        showResultsInWorkspace
+                        onExtractionComplete={(extractedTables) => {
+                          setExtractionResults(extractedTables);
+                          const id = addWorkspaceItem({
+                            type: 'extractor',
+                            title: 'Extracted tables',
+                            extractedTables,
+                            fileId,
+                          });
+                          setActiveWorkspaceId(id);
+                        }}
+                      />
                     </div>
                   </div>
                 </>
@@ -555,30 +554,34 @@ export default function App() {
         </footer>
       </div>
 
-      <div
-        className={`workspace-resize-handle ${resizing ? 'workspace-resize-handle-active' : ''}`}
-        role="separator"
-        aria-label="Resize workspace panel"
-        onMouseDown={handleResizeStart}
-      >
-        <span className="workspace-resize-handle-grip" />
-      </div>
+      {!extractResultsFullScreen && (
+        <>
+          <div
+            className={`workspace-resize-handle ${resizing ? 'workspace-resize-handle-active' : ''}`}
+            role="separator"
+            aria-label="Resize workspace panel"
+            onMouseDown={handleResizeStart}
+          >
+            <span className="workspace-resize-handle-grip" />
+          </div>
 
-      <RightPanel
-        ref={rightPanelRef}
-        loading={loading}
-        currentRoute={lastRoute}
-        fileId={fileId}
-        filename={filename}
-        chatbotReady={chatbotReady}
-        chatbotProcessing={chatbotProcessing}
-        workspaceItems={workspaceItems}
-        activeWorkspaceId={activeWorkspaceId}
-        onSelectWorkspace={setActiveWorkspaceId}
-        onCloseWorkspaceItem={removeWorkspaceItem}
-        workspacePanelWidth={workspacePanelWidth}
-        activeTabLabel={TAB_LABELS[activeTab] || activeTab}
-      />
+          <RightPanel
+            ref={rightPanelRef}
+            loading={loading}
+            currentRoute={lastRoute}
+            fileId={fileId}
+            filename={filename}
+            chatbotReady={chatbotReady}
+            chatbotProcessing={chatbotProcessing}
+            workspaceItems={workspaceItems}
+            activeWorkspaceId={activeWorkspaceId}
+            onSelectWorkspace={setActiveWorkspaceId}
+            onCloseWorkspaceItem={removeWorkspaceItem}
+            workspacePanelWidth={workspacePanelWidth}
+            activeTabLabel={TAB_LABELS[activeTab] || activeTab}
+          />
+        </>
+      )}
 
       {toast && (
         <div className={`toast ${toast.isError ? 'toast-error' : ''}`}>
