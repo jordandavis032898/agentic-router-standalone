@@ -233,6 +233,12 @@ export default function ExtractorTables({ extractedTables, fileId }) {
   const tables = extractedTables || [];
   const [exporting, setExporting] = useState(false);
 
+  useEffect(() => {
+    // Reset scroll to left on mount so first column is visible
+    const el = document.querySelectorAll('.extract-table-scroll');
+    el.forEach((e) => { e.scrollLeft = 0; });
+  }, []);
+
   const handleExport = async () => {
     setExporting(true);
     try {
