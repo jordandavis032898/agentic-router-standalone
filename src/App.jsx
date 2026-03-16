@@ -47,6 +47,10 @@ function App() {
   const [selectedFilters, setSelectedFilters] = useState({})
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [userId] = useState(() => getUserId()) // Get user_id once on mount
+  const [extractionContext, setExtractionContext] = useState(null)
+
+  // Clear extraction context when the selected document changes
+  useEffect(() => { setExtractionContext(null) }, [selectedDocument])
 
   // Navigate to tab: set hash (triggers hashchange → updates state)
   const navigateToTab = useCallback((tab) => {
@@ -222,8 +226,8 @@ function App() {
   }
 
   const     tabComponents = {
-    chat: <ChatPanel 
-      apiUrl={API_BASE_URL} 
+    chat: <ChatPanel
+      apiUrl={API_BASE_URL}
       selectedDocument={selectedDocument}
       documents={documents}
       filters={filters}
@@ -231,12 +235,15 @@ function App() {
       onFilterChange={handleFilterChange}
       addToast={addToast}
       userId={userId}
+      extractionContext={extractionContext}
     />,
     extract: <ExtractPanel
       apiUrl={API_BASE_URL}
       selectedDocument={selectedDocument}
       documents={documents}
       addToast={addToast}
+      setExtractionContext={setExtractionContext}
+      navigateToTab={navigateToTab}
     />,
     'pdf-extract': <PdfExtractPanel
       apiUrl={API_BASE_URL}

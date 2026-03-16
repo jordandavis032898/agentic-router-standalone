@@ -372,7 +372,7 @@ function PageCard({ apiUrl, fileId, pageIndex, pageNumber, isSelected, onToggle 
 }
 
 
-export default function ExtractPanel({ apiUrl, selectedDocument, documents, addToast }) {
+export default function ExtractPanel({ apiUrl, selectedDocument, documents, addToast, setExtractionContext, navigateToTab }) {
   // Page loading & selection
   const [pages, setPages] = useState([])
   const [totalPages, setTotalPages] = useState(0)
@@ -531,6 +531,17 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
         setExtractedData(data.data)
         if (data.data?.extracted_tables?.length > 0) {
           setExpandedTables({ 0: true })
+        }
+        // Lift extraction context to parent for ChatPanel
+        if (setExtractionContext) {
+          const tables = data.data?.extracted_tables || []
+          const successTables = tables.filter(t => t.extraction_status === 'success')
+          setExtractionContext({
+            file_id: selectedDocument,
+            tables: successTables,
+            page_count: selectedPages.size,
+            timestamp: Date.now(),
+          })
         }
         addToast('Data extracted successfully!', 'success')
       } else {
@@ -821,6 +832,31 @@ export default function ExtractPanel({ apiUrl, selectedDocument, documents, addT
                       <p style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Failed</p>
                     </div>
                   </div>
+
+                  {/* Chat about tables CTA */}
+                  {navigateToTab && extractedTables.length > 0 && (
+                    <button
+                      onClick={() => navigateToTab('chat')}
+                      style={{
+                        width: '100%',
+                        marginBottom: '1rem',
+                        padding: '0.625rem 1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        color: 'white',
+                        background: 'linear-gradient(to right, #3b82f6, #6366f1)',
+                        border: 'none',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Chat about extracted tables &rarr;
+                    </button>
+                  )}
 
                   {/* Table results with dividers */}
                   {extractedTables.length > 0 ? (

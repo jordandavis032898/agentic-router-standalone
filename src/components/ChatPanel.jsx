@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -23,6 +23,17 @@ import { COMPANIES, fuzzyMatch } from '../utils/companies.jsx'
 
 const FALLBACK_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'JPM', 'GS']
 
+function buildExtractionSummary(ctx) {
+  if (!ctx?.tables?.length) return null
+  const lines = ctx.tables.map(t => {
+    const tbls = t.data?.tables || t.data?.Tables || []
+    const totalRows = tbls.reduce((s, tb) => s + (tb.rows?.length || 0), 0)
+    const title = tbls[0]?.title || `Page ${t.page_number || t.page_index + 1}`
+    return `- ${title}: ${tbls.length} table(s), ${totalRows} rows`
+  })
+  return `Extracted tables from ${ctx.page_count} page(s):\n${lines.join('\n')}`
+}
+
 export default function ChatPanel({
   apiUrl,
   selectedDocument,
@@ -36,6 +47,7 @@ export default function ChatPanel({
   setMerlinOffline,
   onFetchEdgar,
   setActiveTab,
+  extractionContext,
 }) {
   const [fallbackSearch, setFallbackSearch] = useState('')
   const [fallbackLoading, setFallbackLoading] = useState(false)
@@ -93,9 +105,18 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
         return
       }
 
+      // Enrich question with extraction context if available
+      let questionToSend = userMessage
+      if (extractionContext && extractionContext.file_id === selectedDocument) {
+        const summary = buildExtractionSummary(extractionContext)
+        if (summary && !userMessage.includes('Context from table extraction:')) {
+          questionToSend = `${userMessage}\n\nContext from table extraction: ${summary}`
+        }
+      }
+
       // Build payload with filters
       const payload = {
-        question: userMessage,
+        question: questionToSend,
         user_id: userId // Add user_id (required for new RAG implementation)
       }
 
@@ -177,6 +198,13 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
       inputRef.current?.focus()
     }
   }
+
+  const handleSuggestedPrompt = useCallback((promptText) => {
+    if (isLoading) return
+    setInput(promptText)
+    // Use a microtask so React flushes the input update before submit
+    setTimeout(() => inputRef.current?.form?.requestSubmit(), 0)
+  }, [isLoading])
 
   const clearChat = () => {
     setMessages([{
@@ -410,6 +438,44 @@ ${documents.length > 0 ? `📚 You have ${documents.length} document(s) availabl
             <div ref={messagesEndRef} />
           </div>
         </div>
+
+        {/* Extraction context banner */}
+        {extractionContext && extractionContext.file_id === selectedDocument && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.625rem 0.75rem',
+            marginBottom: '0.5rem',
+            borderRadius: '10px',
+            background: 'rgba(245, 158, 11, 0.1)',
+            border: '1px solid rgba(245, 158, 11, 0.25)',
+            flexWrap: 'wrap',
+          }}>
+            <span style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: 500 }}>
+              📊 {extractionContext.page_count} page{extractionContext.page_count !== 1 ? 's' : ''} extracted — ask questions about the tables
+            </span>
+            <button
+              type="button"
+              onClick={() => handleSuggestedPrompt('Summarize the extracted tables')}
+              disabled={isLoading}
+              style={{
+                marginLeft: 'auto',
+                padding: '0.3rem 0.75rem',
+                borderRadius: '20px',
+                background: 'rgba(245, 158, 11, 0.15)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                color: '#fbbf24',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Summarize the extracted tables
+            </button>
+          </div>
+        )}
 
         {/* Current context */}
         {(currentDoc || activeFilterCount > 0) && (
