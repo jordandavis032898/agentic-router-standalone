@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown';
+
 export default function QueryAnswer({ question, answer, chunks }) {
   return (
     <div className="query-answer">
@@ -8,7 +10,7 @@ export default function QueryAnswer({ question, answer, chunks }) {
       <div className="query-answer-block">
         <span className="query-label">Answer</span>
         <div className="query-answer-prose">
-          <p>{answer}</p>
+          <ReactMarkdown>{answer}</ReactMarkdown>
         </div>
       </div>
       {chunks && chunks.length > 0 && (
