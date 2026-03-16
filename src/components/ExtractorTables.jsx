@@ -29,10 +29,9 @@ function ExplanationBlock({ explanation }) {
   );
 }
 
-function PdfPreview({ fileId, pageIndex }) {
+function PdfPreview({ fileId, pageIndex, hidden }) {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [zoom, setZoom] = useState(100);
-  const [hidden, setHidden] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,75 +52,59 @@ function PdfPreview({ fileId, pageIndex }) {
     return () => { revoked = true; };
   }, [fileId, pageIndex]);
 
-  if (!previewUrl && !loading) return null;
+  if (hidden || (!previewUrl && !loading)) return null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
         <button
-          type="button"
-          onClick={() => setHidden((h) => !h)}
+          type="button" onClick={() => setZoom((z) => Math.max(25, z - 25))}
+          style={{
+            padding: '3px 8px', fontSize: '12px', cursor: 'pointer',
+            background: 'var(--surface-hover)', color: 'var(--text-secondary)',
+            border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)',
+          }}
+        >−</button>
+        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', minWidth: '36px', textAlign: 'center' }}>{zoom}%</span>
+        <button
+          type="button" onClick={() => setZoom((z) => Math.min(300, z + 25))}
+          style={{
+            padding: '3px 8px', fontSize: '12px', cursor: 'pointer',
+            background: 'var(--surface-hover)', color: 'var(--text-secondary)',
+            border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)',
+          }}
+        >+</button>
+        <button
+          type="button" onClick={() => setZoom(100)}
           style={{
             padding: '3px 10px', fontSize: '12px', cursor: 'pointer',
             background: 'var(--surface-hover)', color: 'var(--text-secondary)',
             border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)',
           }}
-        >
-          {hidden ? 'Show preview' : 'Hide preview'}
-        </button>
-        {!hidden && (
-          <>
-            <button
-              type="button" onClick={() => setZoom((z) => Math.max(25, z - 25))}
-              style={{
-                padding: '3px 8px', fontSize: '12px', cursor: 'pointer',
-                background: 'var(--surface-hover)', color: 'var(--text-secondary)',
-                border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)',
-              }}
-            >−</button>
-            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', minWidth: '36px', textAlign: 'center' }}>{zoom}%</span>
-            <button
-              type="button" onClick={() => setZoom((z) => Math.min(300, z + 25))}
-              style={{
-                padding: '3px 8px', fontSize: '12px', cursor: 'pointer',
-                background: 'var(--surface-hover)', color: 'var(--text-secondary)',
-                border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)',
-              }}
-            >+</button>
-            <button
-              type="button" onClick={() => setZoom(100)}
-              style={{
-                padding: '3px 10px', fontSize: '12px', cursor: 'pointer',
-                background: 'var(--surface-hover)', color: 'var(--text-secondary)',
-                border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)',
-              }}
-            >Reset</button>
-          </>
+        >Reset</button>
+      </div>
+      <div style={{
+        overflow: 'auto', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-sm)', background: 'var(--bg-subtle)',
+        maxHeight: '600px',
+      }}>
+        {loading ? (
+          <p style={{ padding: '1rem', color: 'var(--text-tertiary)', fontSize: '13px' }}>Loading preview…</p>
+        ) : (
+          <img
+            src={previewUrl}
+            alt={`Page ${pageIndex + 1} preview`}
+            style={{ display: 'block', width: `${zoom}%`, height: 'auto' }}
+          />
         )}
       </div>
-      {!hidden && (
-        <div style={{
-          overflow: 'auto', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-sm)', background: 'var(--bg-subtle)',
-          maxHeight: '600px',
-        }}>
-          {loading ? (
-            <p style={{ padding: '1rem', color: 'var(--text-tertiary)', fontSize: '13px' }}>Loading preview…</p>
-          ) : (
-            <img
-              src={previewUrl}
-              alt={`Page ${pageIndex + 1} preview`}
-              style={{ display: 'block', width: `${zoom}%`, height: 'auto' }}
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
 function SingleTable({ table, index, fileId }) {
   const { data, table_metadata } = table;
+  const [previewHidden, setPreviewHidden] = useState(false);
   if (!data) return null;
 
   const subTables = data.tables || [];
@@ -131,19 +114,20 @@ function SingleTable({ table, index, fileId }) {
 
   const pageIndex = table.page_index ?? (table.page_number ? table.page_number - 1 : null);
   const pageLabel = `Page ${table.page_number || (pageIndex != null ? pageIndex + 1 : '?')}`;
+  const hasPreview = fileId && pageIndex != null;
 
-  const tableContent = subTables.length > 0 ? (
+  // Determine the title from the first subtable or metadata
+  const headerTitle = subTables.length > 0
+    ? (subTables[0].title || table_metadata?.table_title || `Table ${index + 1}`)
+    : (table_metadata?.table_title || `Table ${index + 1}`);
+
+  const tableBody = subTables.length > 0 ? (
     <>
       {subTables.map((st, stIdx) => {
-        const title = st.title || table_metadata?.table_title || `Table ${index + 1}`;
         const headers = st.headers || [];
         const rows = st.rows || [];
         return (
           <div key={stIdx} className="extract-subtable">
-            <div className="extract-table-header" style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{pageLabel}</span>
-              <span style={{ fontWeight: 600, fontSize: '15px' }}>{title}</span>
-            </div>
             {st.summary && (
               <p className="extract-table-summary">{st.summary}</p>
             )}
@@ -180,13 +164,8 @@ function SingleTable({ table, index, fileId }) {
     (() => {
       const periods = data.periods || [];
       const periodKeys = periods.map((p) => p.year || p.period || String(p));
-      const title = table_metadata?.table_title || `Table ${index + 1}`;
       return (
         <>
-          <div className="extract-table-header" style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{pageLabel}</span>
-            <span style={{ fontWeight: 600, fontSize: '15px' }}>{title}</span>
-          </div>
           <div className="extract-table-scroll">
             <table className="extract-table">
               <thead>
@@ -217,15 +196,35 @@ function SingleTable({ table, index, fileId }) {
   );
 
   return (
-    <div className="extract-table-wrap" style={{ display: 'flex', gap: '16px' }}>
-      <div style={{ flex: '3 1 0%', minWidth: 0 }}>
-        {tableContent}
+    <div className="extract-table-wrap">
+      <div className="extract-table-header">
+        <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{pageLabel}</span>
+        <span style={{ fontWeight: 600, fontSize: '15px' }}>{headerTitle}</span>
+        {hasPreview && (
+          <button
+            type="button"
+            onClick={() => setPreviewHidden((h) => !h)}
+            style={{
+              marginLeft: 'auto',
+              padding: '3px 10px', fontSize: '12px', cursor: 'pointer',
+              background: 'var(--surface-hover)', color: 'var(--text-secondary)',
+              border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)',
+            }}
+          >
+            {previewHidden ? 'Show preview' : 'Hide preview'}
+          </button>
+        )}
       </div>
-      {fileId && pageIndex != null && (
-        <div style={{ flex: '2 1 0%', minWidth: 0 }}>
-          <PdfPreview fileId={fileId} pageIndex={pageIndex} />
+      <div style={{ display: 'flex', gap: '16px' }}>
+        <div style={{ flex: '3 1 0%', minWidth: 0 }}>
+          {tableBody}
         </div>
-      )}
+        {hasPreview && (
+          <div style={{ flex: '2 1 0%', minWidth: 0 }}>
+            <PdfPreview fileId={fileId} pageIndex={pageIndex} hidden={previewHidden} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
