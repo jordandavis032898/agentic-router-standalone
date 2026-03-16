@@ -573,8 +573,7 @@ button:disabled {
 
 .main-area {
   flex: 1 1 0;
-  min-width: 280px;
-  margin-left: 240px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -951,10 +950,10 @@ button:disabled {
 
 /* Right panel — workspace mode: size to content first; drag handle to set manual width */
 .right-panel-workspace {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   width: max-content;
   min-width: 380px;
-  max-width: 90vw;
+  max-width: calc(100vw - 240px - 320px - 8px);
 }
 
 /* Draggable resize handle between main area and workspace panel */
