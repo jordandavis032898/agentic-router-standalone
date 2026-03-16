@@ -1,8 +1,20 @@
-// The input bar no longer forwards keystrokes or submit events to the outside.
-// It visually resembles an active command prompt but is effectively inert.
-// Minor demo tweak: updated default placeholder and button label.
+import { useRef } from 'react';
 
-export default function CommandInput({ placeholder = 'Demo input is visually active only.' }) {
+export default function CommandInput({ value, onChange, onSubmit, placeholder = 'Ask or run a command…', disabled }) {
+  const inputRef = useRef(null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (value?.trim() && onSubmit) onSubmit();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
   return (
     <form className="command-input-wrap" onSubmit={handleSubmit}>
       <div className="command-input-inner">
