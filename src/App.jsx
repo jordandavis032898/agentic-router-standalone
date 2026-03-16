@@ -5,6 +5,7 @@ import Auth from './components/Auth';
 import AdminDashboard from './components/AdminDashboard';
 import EdgarTables from './components/EdgarTables';
 import ExtractorFlow from './components/ExtractorFlow';
+import ExtractorTables from './components/ExtractorTables';
 import QueryAnswer from './components/QueryAnswer';
 import Sidebar from './components/Sidebar';
 import RightPanel from './components/RightPanel';
@@ -69,6 +70,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [extractionResults, setExtractionResults] = useState(null);
 
   const { fileId, filename, chatbotReady, chatbotProcessing } = sharedPdf;
 
@@ -422,38 +424,56 @@ export default function App() {
               )}
               {fileId && (
                 <>
-                  {currentMessages.length === 0 && (
-                    <div className="msg-row">
-                      <SystemBubble text={`Document "${filename || 'PDF'}" ready. Select pages to extract below.`} />
-                    </div>
+                  {extractionResults && (
+                    <>
+                      <div style={{ marginBottom: '12px' }}>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setExtractionResults(null)}
+                          style={{ fontSize: '13px', padding: '6px 14px' }}
+                        >
+                          ← Back to page selection
+                        </button>
+                      </div>
+                      <ExtractorTables extractedTables={extractionResults} fileId={fileId} />
+                    </>
                   )}
-                  {currentMessages.map((msg) => (
-                    <div key={msg.id} className="msg-row msg-row-animate">
-                      <MessageBlock
-                        msg={msg}
-                        onError={showToast}
-                        workspaceActiveId={activeWorkspaceId}
-                        onOpenWorkspace={setActiveWorkspaceId}
-                        addWorkspaceItem={addWorkspaceItem}
-                      />
-                    </div>
-                  ))}
-                  <div className="msg-row">
-                    <div className="output-card">
-                      <ExtractorFlow
-                        fileId={fileId}
-                        onError={(msg) => showToast(msg, true)}
-                        showResultsInWorkspace
-                        onExtractionComplete={(extractedTables) => {
-                          const id = addWorkspaceItem({
-                            type: 'extractor',
-                            title: 'Extracted tables',
-                            extractedTables,
-                            fileId,
-                          });
-                          setActiveWorkspaceId(id);
-                        }}
-                      />
+                  <div style={{ marginTop: extractionResults ? '24px' : undefined }}>
+                    {!extractionResults && currentMessages.length === 0 && (
+                      <div className="msg-row">
+                        <SystemBubble text={`Document "${filename || 'PDF'}" ready. Select pages to extract below.`} />
+                      </div>
+                    )}
+                    {!extractionResults && currentMessages.map((msg) => (
+                      <div key={msg.id} className="msg-row msg-row-animate">
+                        <MessageBlock
+                          msg={msg}
+                          onError={showToast}
+                          workspaceActiveId={activeWorkspaceId}
+                          onOpenWorkspace={setActiveWorkspaceId}
+                          addWorkspaceItem={addWorkspaceItem}
+                        />
+                      </div>
+                    ))}
+                    <div className="msg-row">
+                      <div className="output-card">
+                        <ExtractorFlow
+                          fileId={fileId}
+                          onError={(msg) => showToast(msg, true)}
+                          showResultsInWorkspace
+                          onExtractionComplete={(extractedTables) => {
+                            setExtractionResults(extractedTables);
+                            const id = addWorkspaceItem({
+                              type: 'extractor',
+                              title: 'Extracted tables',
+                              extractedTables,
+                              fileId,
+                            });
+                            setActiveWorkspaceId(id);
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { exportExtractedTablesToExcel } from '../utils/excelExport';
 import * as api from '../api';
 
@@ -15,20 +16,15 @@ function cleanHeader(h) {
 
 function ExplanationBlock({ explanation }) {
   if (!explanation) return null;
-  const lines = explanation.split('\n').filter((l) => l.trim());
-  const heading = lines[0] || '';
-  const bullets = lines.slice(1);
+  // Strip the "Found N table(s):" prefix line
+  const cleaned = explanation.replace(/^Found \d+ table\(s\):?\s*/i, '').trim();
+  if (!cleaned) return null;
 
   return (
-    <div className="extract-explanation">
-      {heading && <p className="extract-explanation-heading">{heading}</p>}
-      {bullets.length > 0 && (
-        <ul className="extract-explanation-list">
-          {bullets.map((b, i) => (
-            <li key={i}>{b.replace(/^\s*\d+\.\s*/, '')}</li>
-          ))}
-        </ul>
-      )}
+    <div className="extract-explanation" style={{ marginTop: '12px' }}>
+      <div style={{ color: 'var(--text)', fontSize: '14px', lineHeight: '1.6' }}>
+        <ReactMarkdown>{cleaned}</ReactMarkdown>
+      </div>
     </div>
   );
 }
@@ -144,9 +140,9 @@ function SingleTable({ table, index, fileId }) {
         const rows = st.rows || [];
         return (
           <div key={stIdx} className="extract-subtable">
-            <div className="extract-table-header">
-              <span>{title}</span>
-              <span className="extract-table-meta">{pageLabel}</span>
+            <div className="extract-table-header" style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{pageLabel}</span>
+              <span style={{ fontWeight: 600, fontSize: '15px' }}>{title}</span>
             </div>
             {st.summary && (
               <p className="extract-table-summary">{st.summary}</p>
@@ -187,9 +183,9 @@ function SingleTable({ table, index, fileId }) {
       const title = table_metadata?.table_title || `Table ${index + 1}`;
       return (
         <>
-          <div className="extract-table-header">
-            <span>{title}</span>
-            <span className="extract-table-meta">{pageLabel}</span>
+          <div className="extract-table-header" style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{pageLabel}</span>
+            <span style={{ fontWeight: 600, fontSize: '15px' }}>{title}</span>
           </div>
           <div className="extract-table-scroll">
             <table className="extract-table">
