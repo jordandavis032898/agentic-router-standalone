@@ -6,7 +6,7 @@ export default function QueryAnswer({ question, answer, chunks }) {
         <p className="query-question">{question}</p>
       </div>
       <div className="query-answer-block">
-        <span className="query-label">Answer (demo)</span>
+        <span className="query-label">Answer</span>
         <div className="query-answer-prose">
           <p>{answer}</p>
         </div>

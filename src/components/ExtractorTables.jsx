@@ -153,7 +153,7 @@ export default function ExtractorTables({ extractedTables, fileId }) {
   if (tables.length === 0) {
     return (
       <div className="extract-tables-container">
-        <p className="extract-tables-empty">No extracted tables to display in this demo.</p>
+        <p className="extract-tables-empty">No extracted tables to display.</p>
       </div>
     );
   }

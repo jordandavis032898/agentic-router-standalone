@@ -73,7 +73,7 @@ export default function EdgarTables({ data, ticker }) {
   if (!data?.merged) {
     return (
       <div className="edgar-tables-container">
-        <p className="edgar-tables-empty">No EDGAR data available in this demo view.</p>
+        <p className="edgar-tables-empty">No EDGAR data available.</p>
       </div>
     );
   }

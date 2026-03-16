@@ -101,7 +101,7 @@ export default function ExtractorFlow({
   return (
     <div ref={containerRef} className={`extractor-flow-card ${narrow ? 'extractor-flow-narrow' : ''}`}>
       <div className="extractor-flow-label">
-        Select pages to extract (demo)
+        Select pages to extract
         {pages.length > 0 && ` (${pages.length} page${pages.length !== 1 ? 's' : ''} with tables)`}
       </div>
 

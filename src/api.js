@@ -58,7 +58,7 @@ export async function health() {
   await delay();
   return {
     status: 'pretend-ok',
-    service: 'mvp_demo_ui_stub',
+    service: 'agentic_router_ui',
   };
 }
 

@@ -32,7 +32,7 @@ export default function Auth({ onAuthenticated }) {
     <div className="auth-page">
       <div className="auth-card">
         <h1 className="auth-title">
-          {isSignup ? 'Create account (demo)' : 'Sign in (demo)'}
+          {isSignup ? 'Create account' : 'Sign in'}
         </h1>
         <p className="auth-subtitle">
           {isSignup

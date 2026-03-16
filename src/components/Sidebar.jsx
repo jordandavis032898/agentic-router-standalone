@@ -1,9 +1,9 @@
 import { useRef } from 'react';
 
 const TABS = [
-  { id: 'edgar', label: 'EDGAR', description: 'Disabled demo flow' },
-  { id: 'extract', label: 'Extract', description: 'Disabled demo flow' },
-  { id: 'rag', label: 'Advanced chatbot', description: 'Disabled demo flow' },
+  { id: 'edgar', label: 'EDGAR', description: 'SEC financial data' },
+  { id: 'extract', label: 'Extract', description: 'PDF table extraction' },
+  { id: 'rag', label: 'Advanced chatbot', description: 'Document Q&A' },
 ];
 
 const ADMIN_TAB = { id: 'admin', label: 'Admin', description: 'User management' };
@@ -33,7 +33,7 @@ export default function Sidebar({
     <aside className={`sidebar ${className}`}>
       <div className="sidebar-brand">
         <span className="sidebar-brand-icon">◇</span>
-        <span className="sidebar-brand-name">Accelerate79ers (demo UI)</span>
+        <span className="sidebar-brand-name">Accelerate79ers</span>
       </div>
       {userEmail && (
         <div className="sidebar-user">

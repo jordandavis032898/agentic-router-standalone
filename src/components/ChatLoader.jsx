@@ -15,7 +15,7 @@ export default function ChatLoader() {
             <span />
           </div>
           <p className="loader-note">
-            Demo loader only — this animation is purely visual and does not trigger any backend calls.
+            Thinking…
           </p>
         </div>
       </div>

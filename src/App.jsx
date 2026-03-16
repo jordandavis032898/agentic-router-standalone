@@ -387,10 +387,10 @@ export default function App() {
             <>
               {currentMessages.length === 0 && !loading && (
                 <div className="welcome-card">
-                  <h2 className="welcome-title">EDGAR (demo)</h2>
+                  <h2 className="welcome-title">EDGAR</h2>
                   <p className="welcome-text">
                     Get data for publicly listed companies. Ask for SEC financials by company and years
-                    (e.g. Apple 10-K last 3 years). This environment is a non-production demo.
+                    (e.g. Apple 10-K last 3 years).
                   </p>
                 </div>
               )}

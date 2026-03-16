@@ -29,7 +29,7 @@ function RightPanel(
       style={workspacePanelWidth ? { width: `${workspacePanelWidth}px` } : undefined}
     >
       <div className="right-panel-header">
-        <span className="right-panel-title">Workspace (demo view)</span>
+        <span className="right-panel-title">Workspace</span>
       </div>
       <div className="right-panel-content">
         <div className="right-panel-context-bar">

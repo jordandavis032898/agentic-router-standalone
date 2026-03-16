@@ -36,8 +36,8 @@ export default function AdminDashboard({ onError }) {
 
   return (
     <div className="admin-dashboard">
-      <h2 className="admin-title">User Management (demo)</h2>
-      <p className="admin-subtitle">Manage user access to the application in this non-production demo.</p>
+      <h2 className="admin-title">User Management</h2>
+      <p className="admin-subtitle">Manage user access to the application.</p>
       <div className="admin-table-wrap">
         <table className="admin-table">
           <thead>
