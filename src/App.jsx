@@ -1,326 +1,655 @@
-import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import Sidebar from './components/Sidebar'
-import Header from './components/Header'
-import DocumentPanel from './components/DocumentPanel'
-import ChatPanel from './components/ChatPanel'
-import ExtractPanel from './components/ExtractPanel'
-import PdfExtractPanel from './components/PdfExtractPanel'
-import EdgarPanel from './components/EdgarPanel'
-import { Toaster } from './components/Toast'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import * as api from './api';
+const getError = api.getErrorMessage;
+import Auth from './components/Auth';
+import AdminDashboard from './components/AdminDashboard';
+import EdgarTables from './components/EdgarTables';
+import ExtractorFlow from './components/ExtractorFlow';
+import QueryAnswer from './components/QueryAnswer';
+import Sidebar from './components/Sidebar';
+import RightPanel from './components/RightPanel';
+import ChatLoader from './components/ChatLoader';
+import CommandInput from './components/CommandInput';
+import { UserBubble, AssistantBubble, SystemBubble } from './components/MessageBubble';
 
-// API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+const APP_VERSION = 'mvp-ui-v1';
 
-// Hash-based navigation helpers
-const VALID_TABS = ['chat', 'extract', 'pdf-extract', 'edgar', 'documents']
-const getTabFromHash = () => {
-  const hash = window.location.hash.replace('#', '') || 'documents'
-  return VALID_TABS.includes(hash) ? hash : 'documents'
+const TAB_LABELS = {
+  edgar: 'EDGAR',
+  extract: 'Extract',
+  rag: 'Advanced chatbot',
+  admin: 'Admin',
+};
+
+function truncateTitle(text, max = 36) {
+  if (!text || text.length <= max) return text || 'New chat';
+  return text.slice(0, max).trim() + '…';
 }
 
-// Check if a string looks like a UUID/hash (not a real filename)
-const looksLikeUuid = (s) => !s || /^[0-9a-f_-]{20,}$/i.test(s) || /^user_/.test(s)
-
-// User ID management - generate and store in localStorage
-const getUserId = () => {
-  const STORAGE_KEY = 'agentic_router_user_id'
-  let userId = localStorage.getItem(STORAGE_KEY)
-  if (!userId) {
-    // Generate a simple user ID
-    userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    localStorage.setItem(STORAGE_KEY, userId)
-  }
-  return userId
+function genId() {
+  return crypto.randomUUID?.() ?? `ws-${Date.now()}`;
 }
 
-function App() {
-  const [activeTab, setActiveTab] = useState(getTabFromHash)
-  if (!window.location.hash) {
-    window.location.replace('#documents')
-  }
-  const [documents, setDocuments] = useState([])
-  const [selectedDocument, setSelectedDocument] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [toasts, setToasts] = useState([])
-  const [filters, setFilters] = useState({})
-  const [selectedFilters, setSelectedFilters] = useState({})
-  const [isInitialLoading, setIsInitialLoading] = useState(true)
-  const [userId] = useState(() => getUserId()) // Get user_id once on mount
-  const [extractionContext, setExtractionContext] = useState(null)
-
-  // Clear extraction context when the selected document changes
-  useEffect(() => { setExtractionContext(null) }, [selectedDocument])
-
-  // Navigate to tab: set hash (triggers hashchange → updates state)
-  const navigateToTab = useCallback((tab) => {
-    window.location.hash = tab
-  }, [])
-
-  // Handle browser back/forward via hashchange
-  useEffect(() => {
-    const onHashChange = () => setActiveTab(getTabFromHash())
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
-
-  // Toast notification helper
-  const addToast = (message, type = 'info') => {
-    const id = Date.now()
-    setToasts(prev => [...prev, { id, message, type }])
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
-    }, 4000)
-  }
-
-  // Fetch documents from Qdrant via API
-  const fetchDocuments = useCallback(async () => {
+export default function App() {
+  const [user, setUser] = useState(() => {
+    // Check for token passed via URL param from parent iframe
     try {
-      const response = await fetch(`${API_BASE_URL}/documents?user_id=${encodeURIComponent(userId)}`)
-      const data = await response.json()
-      
-      if (response.ok && data.success && data.data?.documents) {
-        setDocuments(prev => {
-          // Merge: keep locally-stored filenames for docs we already know about
-          const prevMap = new Map(prev.map(d => [d.file_id || d.hash, d]))
-          return data.data.documents.map(serverDoc => {
-            const id = serverDoc.file_id || serverDoc.hash
-            const local = prevMap.get(id)
-            if (local && local.title && !looksLikeUuid(local.title)) {
-              // Keep the good local title/source
-              return { ...serverDoc, title: local.title, source: local.source || local.title }
-            }
-            return serverDoc
-          })
-        })
-        console.log(`Loaded ${data.data.total} documents from Qdrant`)
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('auth_token');
+      if (token) {
+        const userInfo = { user_id: 'sso', email: '', name: 'User', role: 'admin', is_allowed: true };
+        api.setAuthToken(token, userInfo);
+        return userInfo;
       }
-    } catch (error) {
-      console.error('Failed to fetch documents:', error)
-      // Don't show error toast on initial load, just log it
+    } catch {}
+    const stored = api.getStoredAuth();
+    if (stored?.token && stored?.user) {
+      api.setAuthToken(stored.token, stored.user);
+      return stored.user;
     }
-  }, [userId])
+    // Embedded mode — default to allowed admin (no login required)
+    return { user_id: 'embedded', email: '', name: 'User', role: 'admin', is_allowed: true };
+  });
+  const [activeTab, setActiveTab] = useState('edgar');
+  const [sharedPdf, setSharedPdf] = useState({
+    fileId: null,
+    filename: null,
+    chatbotReady: false,
+    chatbotProcessing: false,
+  });
+  const [edgarMessages, setEdgarMessages] = useState([]);
+  const [extractMessages, setExtractMessages] = useState([]);
+  const [ragMessages, setRagMessages] = useState([]);
+  const [workspaceItems, setWorkspaceItems] = useState([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(null);
+  const [workspacePanelWidth, setWorkspacePanelWidth] = useState(null);
+  const [resizing, setResizing] = useState(false);
+  const rightPanelRef = useRef(null);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [toast, setToast] = useState(null);
 
-  // Fetch available filters
-  const fetchFilters = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/filters`)
-      const data = await response.json()
-      
-      if (response.ok && data.success && data.data?.filters) {
-        setFilters(data.data.filters)
-        console.log('Available filters:', data.data.available_fields)
-      }
-    } catch (error) {
-      console.error('Failed to fetch filters:', error)
-    }
-  }, [])
+  const { fileId, filename, chatbotReady, chatbotProcessing } = sharedPdf;
 
-  // Load documents and filters on mount
+  const messagesByTab = useMemo(
+    () => ({ edgar: edgarMessages, extract: extractMessages, rag: ragMessages }),
+    [edgarMessages, extractMessages, ragMessages]
+  );
+  const currentMessages = messagesByTab[activeTab] ?? [];
+  const setCurrentMessages = useCallback(
+    (fn) => {
+      if (activeTab === 'edgar') setEdgarMessages(fn);
+      if (activeTab === 'extract') setExtractMessages(fn);
+      if (activeTab === 'rag') setRagMessages(fn);
+    },
+    [activeTab]
+  );
+
   useEffect(() => {
-    const init = async () => {
-      setIsInitialLoading(true)
-      await Promise.all([fetchDocuments(), fetchFilters()])
-      setIsInitialLoading(false)
+    if (!resizing) return;
+    const onMove = (e) => {
+      const w = window.innerWidth - e.clientX;
+      const minW = 240;
+      const maxW = Math.floor(0.85 * window.innerWidth);
+      setWorkspacePanelWidth(Math.round(Math.min(maxW, Math.max(minW, w))));
+    };
+    const onUp = () => setResizing(false);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [resizing]);
+
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    if (rightPanelRef.current && workspacePanelWidth == null) {
+      setWorkspacePanelWidth(rightPanelRef.current.offsetWidth);
     }
-    init()
-  }, [fetchDocuments, fetchFilters])
+    setResizing(true);
+  }, [workspacePanelWidth]);
 
-  const handleUpload = async (file) => {
-    setIsLoading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('user_id', userId) // Add user_id to form data
+  const addWorkspaceItem = useCallback((item) => {
+    const id = item.id ?? genId();
+    setWorkspaceItems((prev) => [...prev, { ...item, id }]);
+    setActiveWorkspaceId(id);
+    return id;
+  }, []);
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/upload`, {
-        method: 'POST',
-        body: formData,
-      })
-      
-      const data = await response.json()
-      
-      if (response.ok && data.success) {
-        const newDoc = {
-          ...data.data,
-          file_id: data.data?.file_id || data.data?.hash,
-          hash: data.data?.hash,
-          title: file.name,
-          source: file.name,
-          upload_date: new Date().toISOString().split('T')[0],
-          size: file.size,
+  const removeWorkspaceItem = useCallback((id) => {
+    setWorkspaceItems((prev) => {
+      const next = prev.filter((w) => w.id !== id);
+      setActiveWorkspaceId((a) => (a === id ? (next[0]?.id ?? null) : a));
+      return next;
+    });
+  }, []);
+
+  const showToast = useCallback((text, isError = false) => {
+    setToast({ text, isError });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
+  useEffect(() => {
+    api.setUnauthorizedHandler(() => setUser(null));
+    return () => api.setUnauthorizedHandler(null);
+  }, []);
+
+  const handleAuthenticated = useCallback((data) => {
+    const userInfo = {
+      user_id: data.user_id,
+      email: data.email ?? '',
+      name: data.name ?? null,
+      role: data.role ?? 'user',
+      is_allowed: data.is_allowed ?? false,
+    };
+    api.setAuthToken(data.access_token, userInfo);
+    setUser(userInfo);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    api.clearAuthToken();
+    setUser(null);
+  }, []);
+
+  const pollStatus = useCallback(async (fid) => {
+    for (let i = 0; i < 60; i++) {
+      try {
+        const res = await api.status(fid);
+        const d = res?.data;
+        if (d?.chatbot_ready) {
+          setSharedPdf((p) => ({ ...p, chatbotReady: true, chatbotProcessing: false }));
+          return true;
         }
-        
-        setDocuments(prev => {
-          // Check if document already exists (by hash)
-          const exists = prev.some(d => d.hash === newDoc.hash || d.file_id === newDoc.file_id)
-          if (exists) {
-            return prev
-          }
-          return [...prev, newDoc]
-        })
-        setSelectedDocument(newDoc.file_id || newDoc.hash)
-        addToast(`"${file.name}" uploaded successfully!`, 'success')
-        
-        // Refresh documents list after a short delay (for embedding to complete)
-        setTimeout(() => fetchDocuments(), 2000)
-      } else {
-        addToast(data.error || data.detail || 'Upload failed', 'error')
-      }
-    } catch (error) {
-      addToast('Failed to upload document', 'error')
-      console.error('Upload error:', error)
-    } finally {
-      setIsLoading(false)
+        if (d?.chatbot_error) {
+          setSharedPdf((p) => ({ ...p, chatbotProcessing: false }));
+          showToast(d.chatbot_error, true);
+          return false;
+        }
+        setSharedPdf((p) => ({ ...p, chatbotProcessing: d?.chatbot_processing ?? true }));
+      } catch (_) {}
+      await new Promise((r) => setTimeout(r, 3000));
     }
-  }
+    setSharedPdf((p) => ({ ...p, chatbotProcessing: false }));
+    showToast('Ingestion timed out', true);
+    return false;
+  }, [showToast]);
 
-  const handleDelete = async (fileId) => {
+  const handlePdfUpload = useCallback(
+    async (file) => {
+      if (!file?.name?.toLowerCase().endsWith('.pdf')) {
+        showToast('Please select a PDF file', true);
+        return;
+      }
+      setUploading(true);
+      setSharedPdf({
+        fileId: null,
+        filename: null,
+        chatbotReady: false,
+        chatbotProcessing: false,
+      });
+      try {
+        const res = await api.upload(file);
+        if (!res?.success || !res?.data?.file_id) {
+          showToast(res?.error?.message || 'Upload failed', true);
+          return;
+        }
+        const fid = res.data.file_id;
+        const fname = res.data.filename || file.name;
+        setSharedPdf((p) => ({
+          ...p,
+          fileId: fid,
+          filename: fname,
+          chatbotProcessing: res.data.chatbot_status === 'ingesting',
+          chatbotReady: res.data.chatbot_status !== 'ingesting',
+        }));
+        showToast(
+          res.data.chatbot_status === 'ingesting'
+            ? 'PDF uploaded. Advanced chatbot will be ready when ingestion finishes.'
+            : 'PDF uploaded. Ready for Extract and Advanced chatbot.'
+        );
+        if (res.data.chatbot_status === 'ingesting') pollStatus(fid);
+      } catch (e) {
+        showToast(getError(e, 'Upload failed'), true);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [showToast, pollStatus]
+  );
+
+  const handleNewChat = useCallback(() => {
+    if (activeTab === 'edgar') setEdgarMessages([]);
+    if (activeTab === 'extract') setExtractMessages([]);
+    if (activeTab === 'rag') setRagMessages([]);
+  }, [activeTab]);
+
+  const appendToCurrentTab = useCallback(
+    (...newMessages) => {
+      setCurrentMessages((prev) => [...prev, ...newMessages]);
+    },
+    [setCurrentMessages]
+  );
+
+  const handleSend = useCallback(async () => {
+    const q = (input || '').trim();
+    if (!q) return;
+    setInput('');
+
+    const newUserMsg = { id: Date.now(), role: 'user', text: q };
+    setCurrentMessages((prev) => [...prev, newUserMsg]);
+    setLoading(true);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${fileId}`, {
-        method: 'DELETE',
-      })
-      
-      // Remove from local state regardless of API response
-      setDocuments(prev => prev.filter(d => d.file_id !== fileId && d.hash !== fileId))
-      if (selectedDocument === fileId) {
-        setSelectedDocument(null)
+      if (activeTab === 'edgar') {
+        const routeRes = await api.route(q, false);
+        if (!routeRes?.success || !routeRes?.data) {
+          showToast(routeRes?.error?.message || 'Routing failed', true);
+          setLoading(false);
+          return;
+        }
+        const routeData = routeRes.data;
+        const match = q.match(/\b([A-Z]{1,5})\b/);
+        const ticker =
+          routeData.extracted_params?.ticker || (match && match[1]) || 'AAPL';
+        const numYears = routeData.extracted_params?.num_years || 3;
+        try {
+          const edgarRes = await api.edgar(ticker.toUpperCase(), numYears);
+          if (edgarRes?.success && edgarRes?.data) {
+            const workspaceId = addWorkspaceItem({
+              type: 'edgar',
+              title: `EDGAR · ${edgarRes.data.ticker || 'Financials'}`,
+              data: edgarRes.data,
+              ticker: edgarRes.data.ticker,
+            });
+            appendToCurrentTab({
+              id: Date.now() + 1,
+              role: 'assistant',
+              type: 'edgar',
+              data: edgarRes.data,
+              ticker: edgarRes.data.ticker,
+              workspaceId,
+            });
+          } else {
+            showToast(edgarRes?.error?.message || 'EDGAR fetch failed', true);
+          }
+        } catch (e) {
+          showToast(getError(e, 'EDGAR failed'), true);
+        }
+      } else if (activeTab === 'rag') {
+        if (!fileId) {
+          showToast('Upload a PDF in the sidebar first to use Advanced chatbot', true);
+        } else if (!chatbotReady) {
+          showToast('Document is still ingesting. Advanced chatbot will be available when ready.', true);
+        } else {
+          try {
+            const queryRes = await api.query(fileId, q);
+            if (queryRes?.success && queryRes?.data) {
+              appendToCurrentTab({
+                id: Date.now() + 1,
+                role: 'assistant',
+                type: 'query',
+                data: queryRes.data,
+              });
+            } else {
+              showToast(queryRes?.error?.message || 'Query failed', true);
+            }
+          } catch (e) {
+            const code = e?.response?.data?.detail?.code;
+            const msg = getError(e);
+            if (code === 'CHATBOT_NOT_READY') {
+              setSharedPdf((p) => ({ ...p, chatbotReady: false, chatbotProcessing: true }));
+              pollStatus(fileId);
+            }
+            showToast(msg || 'Query failed', true);
+          }
+        }
       }
-      
-      if (response.ok) {
-        addToast('Document deleted', 'success')
-      } else {
-        addToast('Document removed from list', 'info')
-      }
-    } catch (error) {
-      setDocuments(prev => prev.filter(d => d.file_id !== fileId && d.hash !== fileId))
-      if (selectedDocument === fileId) {
-        setSelectedDocument(null)
-      }
-      addToast('Document removed from list', 'info')
+    } catch (e) {
+      showToast(getError(e, 'Request failed'), true);
+    } finally {
+      setLoading(false);
     }
-  }
+  }, [
+    input,
+    activeTab,
+    fileId,
+    chatbotReady,
+    showToast,
+    pollStatus,
+    appendToCurrentTab,
+    setCurrentMessages,
+    addWorkspaceItem,
+  ]);
 
-  const handleDeleteAll = async () => {
-    const docs = [...documents]
-    setDocuments([])
-    setSelectedDocument(null)
-    addToast(`Cleared ${docs.length} document(s)`, 'success')
-    // Fire delete requests in background
-    for (const doc of docs) {
-      const fileId = doc.file_id || doc.hash
-      if (fileId) {
-        try { await fetch(`${API_BASE_URL}/files/${fileId}`, { method: 'DELETE' }) } catch {}
-      }
+  const lastRoute = useMemo(() => {
+    const msgs = currentMessages;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (m?.type === 'edgar') return 'EDGAR';
+      if (m?.type === 'extractor_flow') return 'Extract';
+      if (m?.type === 'query') return 'Advanced chatbot';
     }
+    return TAB_LABELS[activeTab] || null;
+  }, [activeTab, currentMessages]);
+
+  const inputPlaceholder =
+    activeTab === 'edgar'
+      ? 'e.g. Apple 10-K last 3 years'
+      : activeTab === 'rag'
+        ? 'Ask about your document…'
+        : 'Ask or run a command…';
+
+  const showChatInput = (activeTab === 'edgar' || activeTab === 'rag') && activeTab !== 'admin';
+
+  if (!user) {
+    return <Auth onAuthenticated={handleAuthenticated} />;
   }
 
-  const handleFilterChange = (field, value) => {
-    setSelectedFilters(prev => {
-      if (value === null || value === '') {
-        const { [field]: _, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [field]: value }
-    })
-  }
-
-  const     tabComponents = {
-    chat: <ChatPanel
-      apiUrl={API_BASE_URL}
-      selectedDocument={selectedDocument}
-      documents={documents}
-      filters={filters}
-      selectedFilters={selectedFilters}
-      onFilterChange={handleFilterChange}
-      addToast={addToast}
-      userId={userId}
-      extractionContext={extractionContext}
-    />,
-    extract: <ExtractPanel
-      apiUrl={API_BASE_URL}
-      selectedDocument={selectedDocument}
-      documents={documents}
-      addToast={addToast}
-      setExtractionContext={setExtractionContext}
-      navigateToTab={navigateToTab}
-    />,
-    'pdf-extract': <PdfExtractPanel
-      apiUrl={API_BASE_URL}
-      selectedDocument={selectedDocument}
-      documents={documents}
-      addToast={addToast}
-    />,
-    edgar: <EdgarPanel 
-      apiUrl={API_BASE_URL}
-      addToast={addToast}
-    />,
-    documents: <DocumentPanel
-      documents={documents}
-      selectedDocument={selectedDocument}
-      setSelectedDocument={setSelectedDocument}
-      onUpload={handleUpload}
-      onDelete={handleDelete}
-      onDeleteAll={handleDeleteAll}
-      isLoading={isLoading}
-      onRefresh={fetchDocuments}
-    />,
+  // Logged in but not allowed (and not admin): show request-access card only
+  if (!user.is_allowed && user.role !== 'admin') {
+    return (
+      <div className="app-layout request-access-layout">
+        <div className="request-access-card">
+          <h1 className="request-access-title">Ask admin for access</h1>
+          <p className="request-access-text">
+            Your account is not yet approved. Please contact an administrator to get access to the app.
+          </p>
+          <button type="button" className="btn-primary auth-submit" onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex' }}>
-      {/* Background effects */}
-      <div className="bg-grid" style={{ position: 'fixed', inset: 0, opacity: 0.3, pointerEvents: 'none' }} />
-      
-      {/* Sidebar */}
+    <div className="app-layout">
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={navigateToTab}
-        documentsCount={documents.length}
+        onTabChange={setActiveTab}
+        fileId={fileId}
+        filename={filename}
+        onPdfUpload={handlePdfUpload}
+        uploading={uploading}
+        onLogout={handleLogout}
+        userEmail={user.email}
+        userRole={user.role}
       />
-      
-      {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginLeft: '258px' }}>
-        <Header 
-          activeTab={activeTab}
-          selectedDocument={selectedDocument}
-          documents={documents}
-        />
-        
-        <main style={{ flex: 1, padding: '1.5rem', overflow: 'auto' }}>
-          {isInitialLoading ? (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                border: '3px solid rgba(59, 130, 246, 0.3)',
-                borderTopColor: '#3b82f6',
-                animation: 'spin 1s linear infinite',
-              }} />
-              <p style={{ color: '#94a3b8', marginTop: '1rem' }}>Loading documents...</p>
+      <div className="main-area">
+        <main className="app-main">
+          {activeTab === 'edgar' && (
+            <>
+              {currentMessages.length === 0 && !loading && (
+                <div className="welcome-card">
+                  <h2 className="welcome-title">EDGAR (demo)</h2>
+                  <p className="welcome-text">
+                    Get data for publicly listed companies. Ask for SEC financials by company and years
+                    (e.g. Apple 10-K last 3 years). This environment is a non-production demo.
+                  </p>
+                </div>
+              )}
+              <div className="messages-list">
+                {currentMessages.map((msg) => (
+                  <div key={msg.id} className="msg-row msg-row-animate">
+                    <MessageBlock
+                      msg={msg}
+                      onError={showToast}
+                      workspaceActiveId={activeWorkspaceId}
+                      onOpenWorkspace={setActiveWorkspaceId}
+                      addWorkspaceItem={addWorkspaceItem}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'extract' && (
+            <>
+              {!fileId && (
+                <div className="welcome-card">
+                  <h2 className="welcome-title">Extract</h2>
+                  <p className="welcome-text">
+                    Extract tables from PDF pages. Upload a PDF in the left sidebar, then select pages and extract tables.
+                  </p>
+                </div>
+              )}
+              {fileId && (
+                <>
+                  {currentMessages.length === 0 && (
+                    <div className="msg-row">
+                      <SystemBubble text={`Document "${filename || 'PDF'}" ready. Select pages to extract below.`} />
+                    </div>
+                  )}
+                  {currentMessages.map((msg) => (
+                    <div key={msg.id} className="msg-row msg-row-animate">
+                      <MessageBlock
+                        msg={msg}
+                        onError={showToast}
+                        workspaceActiveId={activeWorkspaceId}
+                        onOpenWorkspace={setActiveWorkspaceId}
+                        addWorkspaceItem={addWorkspaceItem}
+                      />
+                    </div>
+                  ))}
+                  <div className="msg-row">
+                    <div className="output-card">
+                      <ExtractorFlow
+                        fileId={fileId}
+                        onError={(msg) => showToast(msg, true)}
+                        showResultsInWorkspace
+                        onExtractionComplete={(extractedTables) => {
+                          const id = addWorkspaceItem({
+                            type: 'extractor',
+                            title: 'Extracted tables',
+                            extractedTables,
+                            fileId,
+                          });
+                          setActiveWorkspaceId(id);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {activeTab === 'rag' && (
+            <>
+              {currentMessages.length === 0 && !loading && (
+                <div className="welcome-card">
+                  <h2 className="welcome-title">Advanced chatbot</h2>
+                  <p className="welcome-text">
+                    Ask questions about your document.
+                    {fileId
+                      ? chatbotReady
+                        ? ' Your document is ready—ask anything about it.'
+                        : ' Document is still ingesting. You can ask when ready.'
+                      : ' Upload a PDF in the left sidebar to get started.'}
+                  </p>
+                </div>
+              )}
+              <div className="messages-list">
+                {currentMessages.map((msg) => (
+                  <div key={msg.id} className="msg-row msg-row-animate">
+                    <MessageBlock
+                      msg={msg}
+                      onError={showToast}
+                      workspaceActiveId={activeWorkspaceId}
+                      onOpenWorkspace={setActiveWorkspaceId}
+                      addWorkspaceItem={addWorkspaceItem}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'analysis' && (
+            <div className="welcome-card">
+              <h2 className="welcome-title">Analysis</h2>
+              <p className="welcome-text">
+                Insights and visualizations for extracted tables.
+                {fileId
+                  ? ' Extract tables first, then view analysis here.'
+                  : ' Upload a PDF and extract tables to get started.'}
+              </p>
             </div>
-          ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="h-full"
-              >
-                {tabComponents[activeTab]}
-              </motion.div>
-            </AnimatePresence>
+          )}
+
+          {activeTab === 'admin' && (
+            <AdminDashboard onError={(msg) => showToast(msg, true)} />
+          )}
+
+          {loading && (
+            <div className="msg-row msg-row-animate">
+              <ChatLoader />
+            </div>
           )}
         </main>
+
+        <footer className="app-footer">
+          <div className="chatbar">
+            {showChatInput && (
+              <>
+                <CommandInput
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={handleSend}
+                  placeholder={inputPlaceholder}
+                  disabled={loading}
+                />
+              </>
+            )}
+            {activeTab === 'extract' && (
+              <p className="chatbar-hint">Use the flow above to select pages and extract tables.</p>
+            )}
+          </div>
+        </footer>
       </div>
 
-      {/* Toast notifications */}
-      <Toaster toasts={toasts} />
+      <div
+        className={`workspace-resize-handle ${resizing ? 'workspace-resize-handle-active' : ''}`}
+        role="separator"
+        aria-label="Resize workspace panel"
+        onMouseDown={handleResizeStart}
+      >
+        <span className="workspace-resize-handle-grip" />
+      </div>
+
+      <RightPanel
+        ref={rightPanelRef}
+        loading={loading}
+        currentRoute={lastRoute}
+        fileId={fileId}
+        filename={filename}
+        chatbotReady={chatbotReady}
+        chatbotProcessing={chatbotProcessing}
+        workspaceItems={workspaceItems}
+        activeWorkspaceId={activeWorkspaceId}
+        onSelectWorkspace={setActiveWorkspaceId}
+        onCloseWorkspaceItem={removeWorkspaceItem}
+        workspacePanelWidth={workspacePanelWidth}
+        activeTabLabel={TAB_LABELS[activeTab] || activeTab}
+      />
+
+      {toast && (
+        <div className={`toast ${toast.isError ? 'toast-error' : ''}`}>
+          {toast.text}
+        </div>
+      )}
     </div>
-  )
+  );
 }
 
-export default App
+function MessageBlock({
+  msg,
+  onError,
+  workspaceActiveId,
+  onOpenWorkspace,
+  addWorkspaceItem,
+}) {
+  if (msg.role === 'user') {
+    return <UserBubble text={msg.text} />;
+  }
+  if (msg.role === 'system') {
+    return <SystemBubble text={msg.text} />;
+  }
+
+  if (msg.type === 'edgar' && msg.data) {
+    const merged = msg.data?.merged || {};
+    const years = merged.years || [];
+    const count = [merged.balance_sheet, merged.income_statement, merged.cash_flow_statement].filter(
+      Boolean
+    ).length;
+    const isActive = workspaceActiveId === msg.workspaceId;
+    return (
+      <AssistantBubble routeTag={`EDGAR · ${msg.ticker}`}>
+        <button
+          type="button"
+          className={`structured-preview-card ${isActive ? 'structured-preview-card-active' : ''}`}
+          onClick={() => onOpenWorkspace?.(msg.workspaceId)}
+          aria-pressed={isActive}
+        >
+          <span className="structured-preview-title">Financial statements</span>
+          <span className="structured-preview-meta">
+            {msg.ticker} · {count} statement{count !== 1 ? 's' : ''} · {years.length} year
+            {years.length !== 1 ? 's' : ''}
+          </span>
+          <span className="structured-preview-action">View in workspace →</span>
+        </button>
+      </AssistantBubble>
+    );
+  }
+  if (msg.type === 'extractor_flow' && msg.fileId) {
+    return (
+      <AssistantBubble routeTag="Table extraction">
+        <div className="output-card">
+          <ExtractorFlow
+            fileId={msg.fileId}
+            onError={onError}
+            showResultsInWorkspace
+            onExtractionComplete={(extractedTables) => {
+              const id = addWorkspaceItem({
+                type: 'extractor',
+                title: 'Extracted tables',
+                extractedTables,
+                fileId: msg.fileId,
+              });
+              onOpenWorkspace?.(id);
+            }}
+          />
+        </div>
+      </AssistantBubble>
+    );
+  }
+  if (msg.type === 'query' && msg.data) {
+    return (
+      <AssistantBubble routeTag="Advanced chatbot" copyText={msg.data.answer}>
+        <div className="output-card">
+          <QueryAnswer
+            question={msg.data.question}
+            answer={msg.data.answer}
+            chunks={msg.data.chunks}
+          />
+        </div>
+      </AssistantBubble>
+    );
+  }
+
+  return (
+    <AssistantBubble
+      routeTag={msg.route ? `${msg.route}${msg.confidence != null ? ` · ${Math.round(msg.confidence * 100)}%` : ''}` : null}
+      explanation={msg.explanation}
+      text={msg.text}
+      copyText={msg.text}
+    />
+  );
+}
