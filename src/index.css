@@ -288,8 +288,8 @@ button:disabled {
 /* All pages at once – grid with bigger previews */
 .extractor-flow-pages-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 28px;
   margin-bottom: 20px;
 }
 .extractor-flow-narrow .extractor-flow-pages-grid {
@@ -348,7 +348,7 @@ button:disabled {
   height: 14px;
 }
 .extractor-flow-page-preview-wrap {
-  min-height: 600px;
+  min-height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -357,12 +357,12 @@ button:disabled {
 .extractor-flow-page-preview-img {
   width: 100%;
   height: auto;
-  min-height: 600px;
+  min-height: 280px;
   object-fit: contain;
   display: block;
 }
 .extractor-flow-page-preview-placeholder {
-  min-height: 600px;
+  min-height: 280px;
   width: 100%;
   display: flex;
   align-items: center;

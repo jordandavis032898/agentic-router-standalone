@@ -86,7 +86,7 @@ function PdfPreview({ fileId, pageIndex, hidden }) {
       <div style={{
         overflow: 'auto', border: '1px solid var(--border)',
         borderRadius: 'var(--radius-sm)', background: 'var(--bg-subtle)',
-        maxHeight: '600px', maxWidth: '100%',
+        maxHeight: '800px', maxWidth: '100%',
       }}>
         {loading ? (
           <p style={{ padding: '1rem', color: 'var(--text-tertiary)', fontSize: '13px' }}>Loading preview…</p>
@@ -187,6 +187,7 @@ function SingleTable({ table, index, fileId }) {
               </tbody>
             </table>
           </div>
+          <ExplanationBlock explanation={table.explanation} />
         </>
       );
     })()
@@ -213,11 +214,11 @@ function SingleTable({ table, index, fileId }) {
         )}
       </div>
       <div style={{ display: 'flex', gap: '16px' }}>
-        <div style={{ flex: '3 1 0%', minWidth: 0 }}>
+        <div style={{ flex: '1 1 0%', minWidth: 0 }}>
           {tableBody}
         </div>
         {hasPreview && (
-          <div style={{ flex: '2 1 0%', minWidth: 0 }}>
+          <div style={{ flex: '1 1 0%', minWidth: 0 }}>
             <PdfPreview fileId={fileId} pageIndex={pageIndex} hidden={previewHidden} />
           </div>
         )}
