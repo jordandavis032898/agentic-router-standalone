@@ -517,12 +517,13 @@ button:disabled {
   margin-bottom: var(--space-1);
 }
 .extract-table-scroll {
-  overflow-x: scroll;
+  overflow-x: auto;
+  width: 100%;
   max-width: 100%;
   direction: ltr;
 }
 .extract-table {
-  min-width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -538,7 +539,7 @@ button:disabled {
 .extract-td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-subtle);
-  white-space: nowrap;
+  white-space: normal;
 }
 .extract-td-value {
   text-align: right;
@@ -1127,11 +1128,11 @@ button:disabled {
 }
 .workspace-detail-tables .edgar-table-scroll,
 .workspace-detail-tables .extract-table-scroll {
-  overflow-x: scroll;
+  overflow-x: auto;
 }
 .workspace-detail-tables .edgar-table,
 .workspace-detail-tables .extract-table {
-  min-width: max-content;
+  min-width: 100%;
   table-layout: auto;
 }
 .workspace-detail-tables .edgar-table td:first-child {
