@@ -456,7 +456,6 @@ button:disabled {
 .extract-tables-container {
   margin-top: 16px;
   width: 100%;
-  overflow-x: hidden;
 }
 .extract-tables-toolbar {
   display: flex;
@@ -540,6 +539,14 @@ button:disabled {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-subtle);
   white-space: normal;
+}
+.extract-table th:first-child,
+.extract-table td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 1;
+  border-right: 1px solid var(--border);
 }
 .extract-td-value {
   text-align: right;
