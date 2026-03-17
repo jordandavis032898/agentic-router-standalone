@@ -455,6 +455,8 @@ button:disabled {
 /* ----- Extractor tables (payload_doc: rows + periods) ----- */
 .extract-tables-container {
   margin-top: 16px;
+  width: 100%;
+  overflow-x: hidden;
 }
 .extract-tables-toolbar {
   display: flex;
@@ -1300,7 +1302,7 @@ button:disabled {
 .app-main {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: hidden !important;
   padding: var(--space-6) var(--space-6) var(--space-4);
   display: flex;
   flex-direction: column;

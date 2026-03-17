@@ -86,7 +86,7 @@ function PdfPreview({ fileId, pageIndex, hidden }) {
       <div style={{
         overflow: 'auto', border: '1px solid var(--border)',
         borderRadius: 'var(--radius-sm)', background: 'var(--bg-subtle)',
-        maxHeight: '600px',
+        maxHeight: '600px', maxWidth: '100%',
       }}>
         {loading ? (
           <p style={{ padding: '1rem', color: 'var(--text-tertiary)', fontSize: '13px' }}>Loading preview…</p>
@@ -94,7 +94,7 @@ function PdfPreview({ fileId, pageIndex, hidden }) {
           <img
             src={previewUrl}
             alt={`Page ${pageIndex + 1} preview`}
-            style={{ width: '100%', height: 'auto', display: 'block', maxWidth: '100%' }}
+            style={{ display: 'block', width: `${zoom}%`, height: 'auto' }}
           />
         )}
       </div>
