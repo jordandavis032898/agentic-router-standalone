@@ -94,7 +94,7 @@ function PdfPreview({ fileId, pageIndex, hidden }) {
           <img
             src={previewUrl}
             alt={`Page ${pageIndex + 1} preview`}
-            style={{ display: 'block', width: `${zoom}%`, height: 'auto' }}
+            style={{ width: '100%', height: 'auto', display: 'block', maxWidth: '100%' }}
           />
         )}
       </div>
