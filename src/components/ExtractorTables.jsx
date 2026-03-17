@@ -112,7 +112,9 @@ function SingleTable({ table, index, fileId }) {
 
   if (subTables.length === 0 && legacyRows.length === 0) return null;
 
-  const pageIndex = table.page_index ?? (table.page_number ? table.page_number - 1 : null);
+  const pageIndex = table.page_index != null
+    ? Number(table.page_index)
+    : (table.page_number ? Number(table.page_number) - 1 : null);
   const pageLabel = `Page ${table.page_number || (pageIndex != null ? pageIndex + 1 : '?')}`;
   const hasPreview = fileId && pageIndex != null;
 
