@@ -436,6 +436,25 @@ export default function App() {
                     </button>
                   </div>
                   <ExtractorTables extractedTables={extractionResults} fileId={fileId} />
+                  <div className="msg-row" style={{ marginTop: '24px' }}>
+                    <div className="output-card">
+                      <ExtractorFlow
+                        fileId={fileId}
+                        onError={(msg) => showToast(msg, true)}
+                        showResultsInWorkspace
+                        onExtractionComplete={(extractedTables) => {
+                          setExtractionResults(extractedTables);
+                          const id = addWorkspaceItem({
+                            type: 'extractor',
+                            title: 'Extracted tables',
+                            extractedTables,
+                            fileId,
+                          });
+                          setActiveWorkspaceId(id);
+                        }}
+                      />
+                    </div>
+                  </div>
                 </>
               )}
               {fileId && !extractionResults && (
