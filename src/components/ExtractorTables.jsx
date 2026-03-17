@@ -128,9 +128,6 @@ function SingleTable({ table, index, fileId }) {
         const rows = st.rows || [];
         return (
           <div key={stIdx} className="extract-subtable">
-            {st.summary && (
-              <p className="extract-table-summary">{st.summary}</p>
-            )}
             <div className="extract-table-scroll">
               <table className="extract-table">
                 {headers.length > 0 && (
