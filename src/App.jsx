@@ -436,25 +436,26 @@ export default function App() {
                     </button>
                   </div>
                   {console.log('extractionResults:', JSON.stringify(extractionResults, null, 2))}
-                  <ExtractorTables extractedTables={extractionResults} fileId={fileId} />
-                  <div className="msg-row" style={{ marginTop: '24px' }}>
-                    <div className="output-card">
-                      <ExtractorFlow
-                        fileId={fileId}
-                        onError={(msg) => showToast(msg, true)}
-                        showResultsInWorkspace
-                        onExtractionComplete={(extractedTables) => {
-                          setExtractionResults(extractedTables);
-                          const id = addWorkspaceItem({
-                            type: 'extractor',
-                            title: 'Extracted tables',
-                            extractedTables,
-                            fileId,
-                          });
-                          setActiveWorkspaceId(id);
-                        }}
-                      />
-                    </div>
+                  <div style={{ marginBottom: '24px' }}>
+                    <ExtractorTables extractedTables={extractionResults} fileId={fileId} />
+                  </div>
+                  <div style={{ marginTop: '32px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
+                    <ExtractorFlow
+                      fileId={fileId}
+                      onError={(msg) => showToast(msg, true)}
+                      showResultsInWorkspace
+                      onExtractionComplete={(extractedTables) => {
+                        setExtractionResults(extractedTables);
+                        window.scrollTo(0, 0);
+                        const id = addWorkspaceItem({
+                          type: 'extractor',
+                          title: 'Extracted tables',
+                          extractedTables,
+                          fileId,
+                        });
+                        setActiveWorkspaceId(id);
+                      }}
+                    />
                   </div>
                 </>
               )}
@@ -484,6 +485,7 @@ export default function App() {
                         showResultsInWorkspace
                         onExtractionComplete={(extractedTables) => {
                           setExtractionResults(extractedTables);
+                          window.scrollTo(0, 0);
                           const id = addWorkspaceItem({
                             type: 'extractor',
                             title: 'Extracted tables',
