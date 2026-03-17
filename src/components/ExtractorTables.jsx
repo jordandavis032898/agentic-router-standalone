@@ -227,6 +227,7 @@ function SingleTable({ table, index, fileId }) {
 }
 
 export default function ExtractorTables({ extractedTables, fileId }) {
+  console.log('extractedTables prop:', extractedTables);
   const tables = extractedTables || [];
   const [exporting, setExporting] = useState(false);
 

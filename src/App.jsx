@@ -435,6 +435,7 @@ export default function App() {
                       ← Back to page selection
                     </button>
                   </div>
+                  {console.log('extractionResults:', JSON.stringify(extractionResults, null, 2))}
                   <ExtractorTables extractedTables={extractionResults} fileId={fileId} />
                   <div className="msg-row" style={{ marginTop: '24px' }}>
                     <div className="output-card">
