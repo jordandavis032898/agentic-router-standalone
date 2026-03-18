@@ -132,6 +132,7 @@ function SingleTable({ table, index }) {
 
 export default function ExtractorTables({ extractedTables, fileId }) {
   const tables = extractedTables || [];
+  console.log('Extraction results:', JSON.stringify(tables.map(t => ({ page_index: t.page_index, page_number: t.page_number, status: t.extraction_status, title: t.data?.tables?.[0]?.title })), null, 2));
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {

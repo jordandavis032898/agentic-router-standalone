@@ -83,6 +83,7 @@ export default function ExtractorFlow({
     setExtracting(true);
     try {
       const indices = Array.from(selectedPages).sort((a, b) => a - b);
+      console.log('Sending to extract, indices:', indices);
       const res = await api.extract(fileId, indices);
       const tables = res?.data?.extracted_tables || res?.extracted_tables;
       if (res?.success && tables) {
@@ -119,7 +120,7 @@ export default function ExtractorFlow({
                 key={idx}
                 type="button"
                 className={`extractor-flow-page-card ${isSelected ? 'extractor-flow-page-card-selected' : ''}`}
-                onClick={() => togglePage(idx)}
+                onClick={() => { console.log('Selected page_index:', idx, 'page_number:', page.page_number); togglePage(idx); }}
               >
                 <div className="extractor-flow-page-checkbox-wrap">
                   <span className={`extractor-flow-page-checkbox ${isSelected ? 'checked' : ''}`}>
