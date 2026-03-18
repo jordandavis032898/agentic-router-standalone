@@ -7,14 +7,12 @@ export default function ExtractorFlow({
   showResultsInWorkspace,
   onExtractionComplete,
 }) {
-  const [pages, setPages] = useState([]);
-  const [selectedPages, setSelectedPages] = useState(new Set());
-  const [previews, setPreviews] = useState({});
+  const [pdfPages, setPdfPages] = useState([]);       // [{pdf_page, image}, ...]
+  const [selectedPages, setSelectedPages] = useState(new Set()); // Set of 1-based page numbers
   const [extracting, setExtracting] = useState(false);
-  const [loadingPages, setLoadingPages] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const containerRef = useRef(null);
-  const previewsRequested = useRef(new Set());
 
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
@@ -29,55 +27,29 @@ export default function ExtractorFlow({
     return () => ro.disconnect();
   }, []);
 
-  const fetchPages = useCallback(async () => {
+  const fetchPdfPages = useCallback(async () => {
     if (!fileId) return;
-    setLoadingPages(true);
+    setLoading(true);
     try {
-      const res = await api.getPages(fileId);
-      const pagesData = res?.data?.pages_with_tables || res?.data?.pages || [];
-      // Deduplicate by page_index
-      const uniquePages = pagesData.filter(
-        (p, i, arr) => arr.findIndex((x) => x.page_index === p.page_index) === i
-      );
-      setPages(uniquePages);
+      const res = await api.getPdfPages(fileId, 300);
+      setPdfPages(res?.pages || []);
       setSelectedPages(new Set());
-      previewsRequested.current = new Set();
-      setPreviews({});
     } catch (e) {
-      onErrorRef.current?.(api.getErrorMessage(e, 'Failed to load pages'));
+      onErrorRef.current?.(api.getErrorMessage(e, 'Failed to load PDF pages'));
     } finally {
-      setLoadingPages(false);
+      setLoading(false);
     }
   }, [fileId]);
 
   useEffect(() => {
-    fetchPages();
-  }, [fetchPages]);
+    fetchPdfPages();
+  }, [fetchPdfPages]);
 
-  // Simple per-page blob fetch — same as Indian team's approach
-  useEffect(() => {
-    if (!fileId || pages.length === 0) return;
-    pages.forEach(async (page) => {
-      const idx = page.page_index;
-      if (previewsRequested.current.has(idx)) return;
-      previewsRequested.current.add(idx);
-      try {
-        const blob = await api.getPagePreview(fileId, idx);
-        if (blob && blob.size > 0) {
-          const url = URL.createObjectURL(blob);
-          setPreviews((prev) => ({ ...prev, [idx]: url }));
-        }
-      } catch {
-        // preview not available
-      }
-    });
-  }, [fileId, pages]);
-
-  const togglePage = (pageIndex) => {
+  const togglePage = (pageNum) => {
     setSelectedPages((prev) => {
       const next = new Set(prev);
-      if (next.has(pageIndex)) next.delete(pageIndex);
-      else next.add(pageIndex);
+      if (next.has(pageNum)) next.delete(pageNum);
+      else next.add(pageNum);
       return next;
     });
   };
@@ -86,9 +58,9 @@ export default function ExtractorFlow({
     if (selectedPages.size === 0) return;
     setExtracting(true);
     try {
-      const indices = Array.from(selectedPages).sort((a, b) => a - b);
-      const res = await api.extract(fileId, indices);
-      const tables = res?.data?.extracted_tables || res?.extracted_tables;
+      const pageNumbers = Array.from(selectedPages).sort((a, b) => a - b);
+      const res = await api.extractByPageNumbers(fileId, pageNumbers);
+      const tables = res?.data?.extracted_tables;
       if (res?.success && tables) {
         if (showResultsInWorkspace && onExtractionComplete) {
           onExtractionComplete(tables);
@@ -107,23 +79,22 @@ export default function ExtractorFlow({
     <div ref={containerRef} className={`extractor-flow-card ${narrow ? 'extractor-flow-narrow' : ''}`}>
       <div className="extractor-flow-label">
         Select pages to extract
-        {pages.length > 0 && ` (${pages.length} page${pages.length !== 1 ? 's' : ''} with tables)`}
+        {pdfPages.length > 0 && ` (${pdfPages.length} pages in PDF)`}
       </div>
 
-      {loadingPages && <p className="extractor-flow-loading">Loading pages…</p>}
+      {loading && <p className="extractor-flow-loading">Loading pages…</p>}
 
-      {pages.length > 0 && (
+      {pdfPages.length > 0 && (
         <div className="extractor-flow-pages-grid">
-          {pages.map((page) => {
-            const idx = page.page_index;
-            const displayNum = idx + 1;
-            const isSelected = selectedPages.has(idx);
+          {pdfPages.map((pg) => {
+            const pageNum = pg.pdf_page;
+            const isSelected = selectedPages.has(pageNum);
             return (
               <button
-                key={idx}
+                key={pageNum}
                 type="button"
                 className={`extractor-flow-page-card ${isSelected ? 'extractor-flow-page-card-selected' : ''}`}
-                onClick={() => togglePage(idx)}
+                onClick={() => togglePage(pageNum)}
               >
                 <div className="extractor-flow-page-checkbox-wrap">
                   <span className={`extractor-flow-page-checkbox ${isSelected ? 'checked' : ''}`}>
@@ -135,19 +106,13 @@ export default function ExtractorFlow({
                   </span>
                 </div>
                 <div className="extractor-flow-page-preview-wrap">
-                  {previews[idx] ? (
-                    <img
-                      src={previews[idx]}
-                      alt={`Page ${displayNum}`}
-                      className="extractor-flow-page-preview-img"
-                    />
-                  ) : (
-                    <div className="extractor-flow-page-preview-placeholder">
-                      {displayNum}
-                    </div>
-                  )}
+                  <img
+                    src={`data:image/png;base64,${pg.image}`}
+                    alt={`Page ${pageNum}`}
+                    className="extractor-flow-page-preview-img"
+                  />
                 </div>
-                <span className="extractor-flow-page-number">Page {displayNum}</span>
+                <span className="extractor-flow-page-number">Page {pageNum}</span>
               </button>
             );
           })}
@@ -168,8 +133,8 @@ export default function ExtractorFlow({
         <button
           type="button"
           className="btn-secondary"
-          onClick={fetchPages}
-          disabled={loadingPages}
+          onClick={fetchPdfPages}
+          disabled={loading}
         >
           Refresh pages
         </button>

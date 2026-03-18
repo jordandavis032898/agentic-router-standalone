@@ -18,7 +18,6 @@ function ExplanationBlock({ explanation }) {
   if (!explanation) return null;
   const cleaned = explanation.replace(/^Found \d+ table\(s\):?\s*/i, '').trim();
   if (!cleaned) return null;
-
   return (
     <div className="extract-explanation" style={{ marginTop: '12px' }}>
       <div style={{ color: 'var(--text)', fontSize: '14px', lineHeight: '1.6' }}>
@@ -28,36 +27,9 @@ function ExplanationBlock({ explanation }) {
   );
 }
 
-function PdfPreviewPanel({ fileId, pageIndex, show, onToggle }) {
-  const [src, setSrc] = useState(null);
-  const [loading, setLoading] = useState(false);
+function PdfPreviewPanel({ b64Image, pageNum, show, onToggle }) {
   const [zoom, setZoom] = useState(100);
-
-  useEffect(() => {
-    if (!show || !fileId || pageIndex == null) return;
-    let revoked = false;
-    setLoading(true);
-    (async () => {
-      try {
-        const blob = await api.getPagePreview(fileId, pageIndex);
-        if (revoked) return;
-        if (blob && blob.size > 0) {
-          setSrc(URL.createObjectURL(blob));
-        }
-      } catch {
-        // preview not available
-      } finally {
-        if (!revoked) setLoading(false);
-      }
-    })();
-    return () => {
-      revoked = true;
-      setSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
-    };
-  }, [show, fileId, pageIndex]);
-
   if (!show) return null;
-
   return (
     <div className="extract-split-preview">
       <div className="extract-preview-toolbar">
@@ -72,12 +44,10 @@ function PdfPreviewPanel({ fileId, pageIndex, show, onToggle }) {
         </div>
       </div>
       <div className="extract-preview-scroll">
-        {loading ? (
-          <div className="extract-preview-placeholder">Loading preview…</div>
-        ) : src ? (
+        {b64Image ? (
           <img
-            src={src}
-            alt={`Page ${pageIndex + 1}`}
+            src={`data:image/png;base64,${b64Image}`}
+            alt={`Page ${pageNum}`}
             className="extract-preview-img"
             style={{ width: `${zoom}%` }}
           />
@@ -89,23 +59,22 @@ function PdfPreviewPanel({ fileId, pageIndex, show, onToggle }) {
   );
 }
 
-function SingleTable({ table, index, fileId, showPreview, onTogglePreview }) {
+function SingleTable({ table, index, previewMap, showPreview, onTogglePreview }) {
   const { data, table_metadata } = table;
   if (!data) return null;
 
   const subTables = data.tables || [];
   const legacyRows = data.rows || [];
-
   if (subTables.length === 0 && legacyRows.length === 0) return null;
 
-  const pageIndex = table.page_index != null
-    ? Number(table.page_index)
-    : (table.page_number ? Number(table.page_number) - 1 : null);
-  const pageLabel = `Page ${pageIndex != null ? pageIndex + 1 : '?'}`;
+  const pageNum = table.page_number || '?';
+  const pageLabel = `Page ${pageNum}`;
 
   const headerTitle = subTables.length > 0
     ? (subTables[0].title || table_metadata?.table_title || `Table ${index + 1}`)
     : (table_metadata?.table_title || `Table ${index + 1}`);
+
+  const b64Image = previewMap[pageNum] || null;
 
   const tableBody = subTables.length > 0 ? (
     <>
@@ -184,20 +153,20 @@ function SingleTable({ table, index, fileId, showPreview, onTogglePreview }) {
       <div className="extract-table-header">
         <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{pageLabel}</span>
         <span style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{headerTitle}</span>
-        {!showPreview && (
+        {!showPreview && b64Image && (
           <button type="button" className="extract-preview-toggle-btn" onClick={onTogglePreview}>
             Show preview
           </button>
         )}
       </div>
       <div className="extract-split-layout">
-        <div className={showPreview ? 'extract-split-table' : 'extract-split-table-full'}>
+        <div className={showPreview && b64Image ? 'extract-split-table' : 'extract-split-table-full'}>
           {tableBody}
         </div>
         <PdfPreviewPanel
-          fileId={fileId}
-          pageIndex={pageIndex}
-          show={showPreview}
+          b64Image={b64Image}
+          pageNum={pageNum}
+          show={showPreview && !!b64Image}
           onToggle={onTogglePreview}
         />
       </div>
@@ -208,7 +177,28 @@ function SingleTable({ table, index, fileId, showPreview, onTogglePreview }) {
 export default function ExtractorTables({ extractedTables, fileId }) {
   const tables = extractedTables || [];
   const [exporting, setExporting] = useState(false);
+  const [previewMap, setPreviewMap] = useState({}); // page_number -> base64
   const [showPreviews, setShowPreviews] = useState(true);
+
+  // Fetch higher-res thumbnails for preview panels
+  useEffect(() => {
+    if (!fileId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.getPdfPages(fileId, 600);
+        if (cancelled) return;
+        const map = {};
+        (res?.pages || []).forEach((pg) => {
+          map[pg.pdf_page] = pg.image;
+        });
+        setPreviewMap(map);
+      } catch (e) {
+        console.error('Failed to load PDF pages for preview:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fileId]);
 
   useEffect(() => {
     const el = document.querySelectorAll('.extract-table-scroll');
@@ -258,7 +248,7 @@ export default function ExtractorTables({ extractedTables, fileId }) {
           key={idx}
           table={table}
           index={idx}
-          fileId={fileId}
+          previewMap={previewMap}
           showPreview={showPreviews}
           onTogglePreview={() => setShowPreviews((p) => !p)}
         />

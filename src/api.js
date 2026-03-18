@@ -215,6 +215,31 @@ export async function extract(fileId, pageIndices) {
   }
 }
 
+export async function getPdfPages(fileId, width = 300) {
+  try {
+    const res = await axios.get(`${BASE}/pages/${fileId}/pdf-pages`, {
+      headers: authHeaders(),
+      params: { width },
+    });
+    return res.data;
+  } catch (err) {
+    return handleUnauthorized(err);
+  }
+}
+
+export async function extractByPageNumbers(fileId, pageNumbers) {
+  try {
+    const res = await axios.post(
+      `${BASE}/extract-by-page-numbers`,
+      { file_id: fileId, page_numbers: pageNumbers },
+      { headers: authHeaders(), timeout: 300000 }
+    );
+    return res.data;
+  } catch (err) {
+    return handleUnauthorized(err);
+  }
+}
+
 export async function query(fileId, question) {
   try {
     const res = await axios.post(
