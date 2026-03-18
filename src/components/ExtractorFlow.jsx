@@ -61,12 +61,13 @@ export default function ExtractorFlow({
       previewsRequested.current.add(idx);
       try {
         const blob = await api.getPagePreview(fileId, idx);
+        console.log('Preview blob size:', blob?.size, 'type:', blob?.type, 'for page_index:', idx);
         if (blob && blob.size > 0) {
           const url = URL.createObjectURL(blob);
           setPreviews((prev) => ({ ...prev, [idx]: url }));
         }
-      } catch {
-        // preview not available
+      } catch (e) {
+        console.error('Preview failed for page_index:', idx, e);
       }
     });
   }, [fileId, pages]);
