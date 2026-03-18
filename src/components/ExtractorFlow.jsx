@@ -35,6 +35,7 @@ export default function ExtractorFlow({
     try {
       const res = await api.getPages(fileId);
       const pagesData = res?.data?.pages_with_tables || res?.data?.pages || [];
+      console.log('Pages from API:', JSON.stringify(pagesData.slice(0, 5), null, 2));
       setPages(pagesData);
       setSelectedPages(new Set());
       previewsRequested.current = new Set();
