@@ -16,7 +16,6 @@ function cleanHeader(h) {
 
 function ExplanationBlock({ explanation }) {
   if (!explanation) return null;
-  // Strip the "Found N table(s):" prefix line
   const cleaned = explanation.replace(/^Found \d+ table\(s\):?\s*/i, '').trim();
   if (!cleaned) return null;
 
@@ -29,47 +28,41 @@ function ExplanationBlock({ explanation }) {
   );
 }
 
-function PdfPreview({ fileId, pageIndex }) {
-  const [src, setSrc] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+function PdfPreviewPanel({ b64Image, pageNum, show, onToggle }) {
+  const [zoom, setZoom] = useState(100);
 
-  useEffect(() => {
-    if (!fileId || pageIndex == null) { setLoading(false); return; }
-    let revoked = false;
-    (async () => {
-      setLoading(true);
-      setError(false);
-      try {
-        const blob = await api.getPagePreview(fileId, pageIndex);
-        if (revoked) return;
-        if (blob && blob.size > 0) {
-          setSrc(URL.createObjectURL(blob));
-        } else {
-          setError(true);
-        }
-      } catch {
-        if (!revoked) setError(true);
-      } finally {
-        if (!revoked) setLoading(false);
-      }
-    })();
-    return () => {
-      revoked = true;
-      setSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
-    };
-  }, [fileId, pageIndex]);
+  if (!show) return null;
 
-  if (loading) {
-    return <div className="extract-preview-placeholder">Loading preview...</div>;
-  }
-  if (error || !src) {
-    return <div className="extract-preview-placeholder">Preview unavailable</div>;
-  }
-  return <img src={src} alt={`Page ${pageIndex + 1}`} className="extract-preview-img" />;
+  return (
+    <div className="extract-split-preview">
+      <div className="extract-preview-toolbar">
+        <button type="button" onClick={onToggle} className="extract-preview-toggle-btn">
+          Hide preview
+        </button>
+        <div className="extract-preview-zoom-controls">
+          <button type="button" onClick={() => setZoom((z) => Math.max(25, z - 25))}>−</button>
+          <span className="extract-preview-zoom-label">{zoom}%</span>
+          <button type="button" onClick={() => setZoom((z) => Math.min(300, z + 25))}>+</button>
+          <button type="button" onClick={() => setZoom(100)} className="extract-preview-zoom-reset">Reset</button>
+        </div>
+      </div>
+      <div className="extract-preview-scroll">
+        {b64Image ? (
+          <img
+            src={`data:image/png;base64,${b64Image}`}
+            alt={`Page ${pageNum}`}
+            className="extract-preview-img"
+            style={{ width: `${zoom}%` }}
+          />
+        ) : (
+          <div className="extract-preview-placeholder">Preview unavailable</div>
+        )}
+      </div>
+    </div>
+  );
 }
 
-function SingleTable({ table, index, fileId }) {
+function SingleTable({ table, index, thumbnails, showPreview, onTogglePreview }) {
   const { data, table_metadata } = table;
   if (!data) return null;
 
@@ -81,12 +74,15 @@ function SingleTable({ table, index, fileId }) {
   const pageIndex = table.page_index != null
     ? Number(table.page_index)
     : (table.page_number ? Number(table.page_number) - 1 : null);
-  const pageLabel = `Page ${table.page_number || (pageIndex != null ? pageIndex + 1 : '?')}`;
+  const pageNum = table.page_number || (pageIndex != null ? pageIndex + 1 : null);
+  const pageLabel = `Page ${pageNum || '?'}`;
 
-  // Determine the title from the first subtable or metadata
   const headerTitle = subTables.length > 0
     ? (subTables[0].title || table_metadata?.table_title || `Table ${index + 1}`)
     : (table_metadata?.table_title || `Table ${index + 1}`);
+
+  // Get base64 thumbnail for this page
+  const b64Image = pageNum ? thumbnails[pageNum] : null;
 
   const tableBody = subTables.length > 0 ? (
     <>
@@ -164,17 +160,23 @@ function SingleTable({ table, index, fileId }) {
     <div className="extract-table-wrap">
       <div className="extract-table-header">
         <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{pageLabel}</span>
-        <span style={{ fontWeight: 600, fontSize: '15px' }}>{headerTitle}</span>
+        <span style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{headerTitle}</span>
+        {!showPreview && b64Image && (
+          <button type="button" className="extract-preview-toggle-btn" onClick={onTogglePreview}>
+            Show preview
+          </button>
+        )}
       </div>
       <div className="extract-split-layout">
-        <div className="extract-split-table">
+        <div className={showPreview && b64Image ? 'extract-split-table' : 'extract-split-table-full'}>
           {tableBody}
         </div>
-        {fileId && pageIndex != null && (
-          <div className="extract-split-preview">
-            <PdfPreview fileId={fileId} pageIndex={pageIndex} />
-          </div>
-        )}
+        <PdfPreviewPanel
+          b64Image={b64Image}
+          pageNum={pageNum}
+          show={showPreview && !!b64Image}
+          onToggle={onTogglePreview}
+        />
       </div>
     </div>
   );
@@ -182,11 +184,31 @@ function SingleTable({ table, index, fileId }) {
 
 export default function ExtractorTables({ extractedTables, fileId }) {
   const tables = extractedTables || [];
-  console.log('Extraction results:', JSON.stringify(tables.map(t => ({ page_index: t.page_index, page_number: t.page_number, status: t.extraction_status, title: t.data?.tables?.[0]?.title })), null, 2));
   const [exporting, setExporting] = useState(false);
+  const [thumbnails, setThumbnails] = useState({});
+  const [showPreviews, setShowPreviews] = useState(true);
+
+  // Fetch all thumbnails once for the PDF preview panels
+  useEffect(() => {
+    if (!fileId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.getAllThumbnails(fileId, 600); // higher res for preview
+        if (cancelled) return;
+        const map = {};
+        (res?.thumbnails || []).forEach((t) => {
+          map[t.page_number] = t.image;
+        });
+        setThumbnails(map);
+      } catch (e) {
+        console.error('Failed to load thumbnails for preview:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fileId]);
 
   useEffect(() => {
-    // Reset scroll to left on mount so first column is visible
     const el = document.querySelectorAll('.extract-table-scroll');
     el.forEach((e) => { e.scrollLeft = 0; });
   }, []);
@@ -216,12 +238,28 @@ export default function ExtractorTables({ extractedTables, fileId }) {
         <span className="extract-tables-title">
           Extracted Tables ({tables.length})
         </span>
-        <button type="button" className="btn-primary" onClick={handleExport} disabled={exporting}>
-          {exporting ? 'Exporting…' : 'Export Excel'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="extract-preview-toggle-btn"
+            onClick={() => setShowPreviews((p) => !p)}
+          >
+            {showPreviews ? 'Hide all previews' : 'Show all previews'}
+          </button>
+          <button type="button" className="btn-primary" onClick={handleExport} disabled={exporting}>
+            {exporting ? 'Exporting…' : 'Export Excel'}
+          </button>
+        </div>
       </div>
       {tables.map((table, idx) => (
-        <SingleTable key={idx} table={table} index={idx} fileId={fileId} />
+        <SingleTable
+          key={idx}
+          table={table}
+          index={idx}
+          thumbnails={thumbnails}
+          showPreview={showPreviews}
+          onTogglePreview={() => setShowPreviews((p) => !p)}
+        />
       ))}
     </div>
   );

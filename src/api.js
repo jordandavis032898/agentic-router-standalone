@@ -178,6 +178,18 @@ export async function getPagePreview(fileId, pageIndex) {
   }
 }
 
+export async function getAllThumbnails(fileId, width = 300) {
+  try {
+    const res = await axios.get(`${BASE}/pages/${fileId}/all-thumbnails`, {
+      headers: authHeaders(),
+      params: { width },
+    });
+    return res.data;
+  } catch (err) {
+    return handleUnauthorized(err);
+  }
+}
+
 export async function getPagePreviewByNumber(fileId, pageNumber) {
   try {
     const res = await axios.get(`${BASE}/pages/${fileId}/preview-by-page/${pageNumber}`, {
