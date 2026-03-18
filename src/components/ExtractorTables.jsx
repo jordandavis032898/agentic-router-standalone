@@ -176,6 +176,17 @@ function SingleTable({ table, index, previewMap, showPreview, onTogglePreview })
 
 export default function ExtractorTables({ extractedTables, fileId }) {
   const tables = extractedTables || [];
+  console.log(`[ExtractorTables] received ${tables.length} tables:`,
+    tables.map((t, i) => ({
+      i,
+      page: t.page_number,
+      status: t.extraction_status,
+      hasData: !!t.data,
+      dataKeys: t.data ? Object.keys(t.data) : null,
+      tablesCount: t.data?.tables?.length ?? 0,
+      rowsCount: t.data?.rows?.length ?? 0,
+    }))
+  );
   const [exporting, setExporting] = useState(false);
   const [previewMap, setPreviewMap] = useState({}); // page_number -> base64
   const [showPreviews, setShowPreviews] = useState(true);

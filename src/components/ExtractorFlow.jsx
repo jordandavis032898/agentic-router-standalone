@@ -60,7 +60,9 @@ export default function ExtractorFlow({
     setExtracting(true);
     try {
       const pageNumbers = Array.from(selectedPages).sort((a, b) => a - b);
+      console.log('Extracting pages:', pageNumbers, 'from selectedPages Set:', Array.from(selectedPages));
       const res = await api.extractByPageNumbers(fileId, pageNumbers);
+      console.log('Extract response:', JSON.stringify(res, null, 2).slice(0, 2000));
       const tables = res?.data?.extracted_tables;
       if (res?.success && tables) {
         setExtractionDone(true);
