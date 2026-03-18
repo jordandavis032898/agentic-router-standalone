@@ -81,8 +81,8 @@ function SingleTable({ table, index, thumbnails, showPreview, onTogglePreview })
     ? (subTables[0].title || table_metadata?.table_title || `Table ${index + 1}`)
     : (table_metadata?.table_title || `Table ${index + 1}`);
 
-  // Get base64 thumbnail for this page
-  const b64Image = pageNum ? thumbnails[pageNum] : null;
+  // Get base64 thumbnail for this page (keyed by 0-based page_index)
+  const b64Image = pageIndex != null ? thumbnails[pageIndex] : null;
 
   const tableBody = subTables.length > 0 ? (
     <>
@@ -198,7 +198,7 @@ export default function ExtractorTables({ extractedTables, fileId }) {
         if (cancelled) return;
         const map = {};
         (res?.thumbnails || []).forEach((t) => {
-          map[t.page_number] = t.image;
+          map[t.page_number - 1] = t.image; // key by 0-based page_index
         });
         setThumbnails(map);
       } catch (e) {

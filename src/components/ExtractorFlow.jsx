@@ -9,7 +9,7 @@ export default function ExtractorFlow({
 }) {
   const [pages, setPages] = useState([]);
   const [selectedPages, setSelectedPages] = useState(new Set());
-  const [thumbnails, setThumbnails] = useState({}); // page_number -> base64
+  const [thumbnails, setThumbnails] = useState({}); // page_index (0-based) -> base64
   const [extracting, setExtracting] = useState(false);
   const [loadingPages, setLoadingPages] = useState(false);
   const [loadingThumbs, setLoadingThumbs] = useState(false);
@@ -40,6 +40,10 @@ export default function ExtractorFlow({
       const uniquePages = pagesData.filter(
         (p, i, arr) => arr.findIndex((x) => x.page_index === p.page_index) === i
       );
+      console.log('All pages with numbers:', uniquePages.map(p => ({
+        page_index: p.page_index,
+        page_number: p.page_number
+      })));
       setPages(uniquePages);
       setSelectedPages(new Set());
     } catch (e) {
@@ -57,8 +61,10 @@ export default function ExtractorFlow({
       const res = await api.getAllThumbnails(fileId, 300);
       const map = {};
       (res?.thumbnails || []).forEach((t) => {
-        map[t.page_number] = t.image;
+        // Key by 0-based index (page_number - 1) so we can match via page_index
+        map[t.page_number - 1] = t.image;
       });
+      console.log('Thumbnails available for page indices:', Object.keys(map));
       setThumbnails(map);
     } catch (e) {
       console.error('Failed to load thumbnails:', e);
@@ -117,8 +123,8 @@ export default function ExtractorFlow({
             const idx = page.page_index;
             const pageNum = page.page_number || idx + 1;
             const isSelected = selectedPages.has(idx);
-            // Match thumbnail by page_number (1-based PDF page from PyMuPDF)
-            const thumbB64 = thumbnails[pageNum];
+            // Match thumbnail by page_index (0-based, directly into PyMuPDF array)
+            const thumbB64 = thumbnails[idx];
             return (
               <button
                 key={idx}
