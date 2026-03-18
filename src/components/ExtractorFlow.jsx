@@ -10,6 +10,7 @@ export default function ExtractorFlow({
   const [pdfPages, setPdfPages] = useState([]);       // [{pdf_page, image}, ...]
   const [selectedPages, setSelectedPages] = useState(new Set()); // Set of 1-based page numbers
   const [extracting, setExtracting] = useState(false);
+  const [extractionDone, setExtractionDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const containerRef = useRef(null);
@@ -62,6 +63,7 @@ export default function ExtractorFlow({
       const res = await api.extractByPageNumbers(fileId, pageNumbers);
       const tables = res?.data?.extracted_tables;
       if (res?.success && tables) {
+        setExtractionDone(true);
         if (showResultsInWorkspace && onExtractionComplete) {
           onExtractionComplete(tables);
         }
@@ -74,6 +76,25 @@ export default function ExtractorFlow({
       setExtracting(false);
     }
   };
+
+  if (extractionDone) {
+    return (
+      <div ref={containerRef} className={`extractor-flow-card ${narrow ? 'extractor-flow-narrow' : ''}`}>
+        <div className="extractor-flow-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setExtractionDone(false);
+              setSelectedPages(new Set());
+            }}
+          >
+            Back to page selection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className={`extractor-flow-card ${narrow ? 'extractor-flow-narrow' : ''}`}>
