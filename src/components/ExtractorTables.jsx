@@ -221,6 +221,7 @@ function SingleTable({ table, index, fileId }) {
         </div>
         {hasPreview && (
           <div style={{ flex: '1 1 0%', minWidth: 0 }}>
+            {console.log('PdfPreview pageIndex:', pageIndex, 'table.page_index:', table.page_index, 'table.page_number:', table.page_number)}
             <PdfPreview fileId={fileId} pageIndex={pageIndex} hidden={previewHidden} />
           </div>
         )}
