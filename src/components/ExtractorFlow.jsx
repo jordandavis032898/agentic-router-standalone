@@ -54,10 +54,11 @@ export default function ExtractorFlow({
     if (!fileId || pages.length === 0) return;
     pages.forEach(async (page) => {
       const idx = page.page_index;
-      if (previewsRequested.current.has(idx)) return;
+      const pageNum = page.page_number;
+      if (!pageNum || previewsRequested.current.has(idx)) return;
       previewsRequested.current.add(idx);
       try {
-        const blob = await api.getPagePreview(fileId, idx);
+        const blob = await api.getPagePreviewByNumber(fileId, pageNum);
         if (blob && blob.size > 0) {
           const url = URL.createObjectURL(blob);
           setPreviews((prev) => ({ ...prev, [idx]: url }));
@@ -111,7 +112,7 @@ export default function ExtractorFlow({
         <div className="extractor-flow-pages-grid">
           {pages.map((page, i) => {
             const idx = page.page_index;
-            const displayNum = idx + 1;
+            const displayNum = page.page_number || (idx + 1);
             const isSelected = selectedPages.has(idx);
             return (
               <button
