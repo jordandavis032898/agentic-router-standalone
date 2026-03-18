@@ -35,7 +35,10 @@ export default function ExtractorFlow({
     try {
       const res = await api.getPages(fileId);
       const pagesData = res?.data?.pages_with_tables || res?.data?.pages || [];
-      setPages(pagesData);
+      // Deduplicate by page_index
+      const uniquePages = pagesData.filter((p, i, arr) => arr.findIndex(x => x.page_index === p.page_index) === i);
+      console.log('pages from API:', uniquePages.map(p => p.page_index));
+      setPages(uniquePages);
       setSelectedPages(new Set());
       previewsRequested.current = new Set();
       setPreviews({});
@@ -54,11 +57,10 @@ export default function ExtractorFlow({
     if (!fileId || pages.length === 0) return;
     pages.forEach(async (page) => {
       const idx = page.page_index;
-      const pageNum = page.page_number;
-      if (!pageNum || previewsRequested.current.has(idx)) return;
+      if (previewsRequested.current.has(idx)) return;
       previewsRequested.current.add(idx);
       try {
-        const blob = await api.getPagePreviewByNumber(fileId, pageNum);
+        const blob = await api.getPagePreview(fileId, idx);
         if (blob && blob.size > 0) {
           const url = URL.createObjectURL(blob);
           setPreviews((prev) => ({ ...prev, [idx]: url }));
@@ -83,7 +85,6 @@ export default function ExtractorFlow({
     setExtracting(true);
     try {
       const indices = Array.from(selectedPages).sort((a, b) => a - b);
-      console.log('Sending to extract, indices:', indices);
       const res = await api.extract(fileId, indices);
       const tables = res?.data?.extracted_tables || res?.extracted_tables;
       if (res?.success && tables) {
@@ -113,14 +114,14 @@ export default function ExtractorFlow({
         <div className="extractor-flow-pages-grid">
           {pages.map((page, i) => {
             const idx = page.page_index;
-            const displayNum = page.page_number || (idx + 1);
+            const displayNum = idx + 1;
             const isSelected = selectedPages.has(idx);
             return (
               <button
                 key={idx}
                 type="button"
                 className={`extractor-flow-page-card ${isSelected ? 'extractor-flow-page-card-selected' : ''}`}
-                onClick={() => { console.log('Selected page_index:', idx, 'page_number:', page.page_number); togglePage(idx); }}
+                onClick={() => togglePage(idx)}
               >
                 <div className="extractor-flow-page-checkbox-wrap">
                   <span className={`extractor-flow-page-checkbox ${isSelected ? 'checked' : ''}`}>
