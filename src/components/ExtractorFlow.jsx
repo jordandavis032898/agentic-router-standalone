@@ -9,12 +9,12 @@ export default function ExtractorFlow({
 }) {
   const [pages, setPages] = useState([]);
   const [selectedPages, setSelectedPages] = useState(new Set());
-  const [thumbnails, setThumbnails] = useState({}); // page_index (0-based) -> base64
+  const [previews, setPreviews] = useState({});
   const [extracting, setExtracting] = useState(false);
   const [loadingPages, setLoadingPages] = useState(false);
-  const [loadingThumbs, setLoadingThumbs] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const containerRef = useRef(null);
+  const previewsRequested = useRef(new Set());
 
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
@@ -29,7 +29,6 @@ export default function ExtractorFlow({
     return () => ro.disconnect();
   }, []);
 
-  // Fetch pages with tables (from LlamaParse prefilter)
   const fetchPages = useCallback(async () => {
     if (!fileId) return;
     setLoadingPages(true);
@@ -40,12 +39,10 @@ export default function ExtractorFlow({
       const uniquePages = pagesData.filter(
         (p, i, arr) => arr.findIndex((x) => x.page_index === p.page_index) === i
       );
-      console.log('All pages with numbers:', uniquePages.map(p => ({
-        page_index: p.page_index,
-        page_number: p.page_number
-      })));
       setPages(uniquePages);
       setSelectedPages(new Set());
+      previewsRequested.current = new Set();
+      setPreviews({});
     } catch (e) {
       onErrorRef.current?.(api.getErrorMessage(e, 'Failed to load pages'));
     } finally {
@@ -53,30 +50,28 @@ export default function ExtractorFlow({
     }
   }, [fileId]);
 
-  // Fetch all PDF thumbnails via PyMuPDF (always correct)
-  const fetchThumbnails = useCallback(async () => {
-    if (!fileId) return;
-    setLoadingThumbs(true);
-    try {
-      const res = await api.getAllThumbnails(fileId, 300);
-      const map = {};
-      (res?.thumbnails || []).forEach((t) => {
-        // Key by 0-based index (page_number - 1) so we can match via page_index
-        map[t.page_number - 1] = t.image;
-      });
-      console.log('Thumbnails available for page indices:', Object.keys(map));
-      setThumbnails(map);
-    } catch (e) {
-      console.error('Failed to load thumbnails:', e);
-    } finally {
-      setLoadingThumbs(false);
-    }
-  }, [fileId]);
-
   useEffect(() => {
     fetchPages();
-    fetchThumbnails();
-  }, [fetchPages, fetchThumbnails]);
+  }, [fetchPages]);
+
+  // Simple per-page blob fetch — same as Indian team's approach
+  useEffect(() => {
+    if (!fileId || pages.length === 0) return;
+    pages.forEach(async (page) => {
+      const idx = page.page_index;
+      if (previewsRequested.current.has(idx)) return;
+      previewsRequested.current.add(idx);
+      try {
+        const blob = await api.getPagePreview(fileId, idx);
+        if (blob && blob.size > 0) {
+          const url = URL.createObjectURL(blob);
+          setPreviews((prev) => ({ ...prev, [idx]: url }));
+        }
+      } catch {
+        // preview not available
+      }
+    });
+  }, [fileId, pages]);
 
   const togglePage = (pageIndex) => {
     setSelectedPages((prev) => {
@@ -115,16 +110,14 @@ export default function ExtractorFlow({
         {pages.length > 0 && ` (${pages.length} page${pages.length !== 1 ? 's' : ''} with tables)`}
       </div>
 
-      {(loadingPages || loadingThumbs) && <p className="extractor-flow-loading">Loading pages…</p>}
+      {loadingPages && <p className="extractor-flow-loading">Loading pages…</p>}
 
       {pages.length > 0 && (
         <div className="extractor-flow-pages-grid">
           {pages.map((page) => {
             const idx = page.page_index;
-            const pageNum = page.page_number || idx + 1;
+            const displayNum = idx + 1;
             const isSelected = selectedPages.has(idx);
-            // Match thumbnail by page_index (0-based, directly into PyMuPDF array)
-            const thumbB64 = thumbnails[idx];
             return (
               <button
                 key={idx}
@@ -142,19 +135,19 @@ export default function ExtractorFlow({
                   </span>
                 </div>
                 <div className="extractor-flow-page-preview-wrap">
-                  {thumbB64 ? (
+                  {previews[idx] ? (
                     <img
-                      src={`data:image/png;base64,${thumbB64}`}
-                      alt={`Page ${pageNum}`}
+                      src={previews[idx]}
+                      alt={`Page ${displayNum}`}
                       className="extractor-flow-page-preview-img"
                     />
                   ) : (
                     <div className="extractor-flow-page-preview-placeholder">
-                      {pageNum}
+                      {displayNum}
                     </div>
                   )}
                 </div>
-                <span className="extractor-flow-page-number">Page {pageNum}</span>
+                <span className="extractor-flow-page-number">Page {displayNum}</span>
               </button>
             );
           })}
@@ -175,8 +168,8 @@ export default function ExtractorFlow({
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => { fetchPages(); fetchThumbnails(); }}
-          disabled={loadingPages || loadingThumbs}
+          onClick={fetchPages}
+          disabled={loadingPages}
         >
           Refresh pages
         </button>
