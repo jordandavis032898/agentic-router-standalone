@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { exportExtractedTablesToExcel } from '../utils/excelExport';
+import * as api from '../api';
 
 function formatCellValue(val) {
   if (val == null) return '—';
@@ -28,7 +29,47 @@ function ExplanationBlock({ explanation }) {
   );
 }
 
-function SingleTable({ table, index }) {
+function PdfPreview({ fileId, pageIndex }) {
+  const [src, setSrc] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!fileId || pageIndex == null) { setLoading(false); return; }
+    let revoked = false;
+    (async () => {
+      setLoading(true);
+      setError(false);
+      try {
+        const blob = await api.getPagePreview(fileId, pageIndex);
+        if (revoked) return;
+        if (blob && blob.size > 0) {
+          setSrc(URL.createObjectURL(blob));
+        } else {
+          setError(true);
+        }
+      } catch {
+        if (!revoked) setError(true);
+      } finally {
+        if (!revoked) setLoading(false);
+      }
+    })();
+    return () => {
+      revoked = true;
+      setSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    };
+  }, [fileId, pageIndex]);
+
+  if (loading) {
+    return <div className="extract-preview-placeholder">Loading preview...</div>;
+  }
+  if (error || !src) {
+    return <div className="extract-preview-placeholder">Preview unavailable</div>;
+  }
+  return <img src={src} alt={`Page ${pageIndex + 1}`} className="extract-preview-img" />;
+}
+
+function SingleTable({ table, index, fileId }) {
   const { data, table_metadata } = table;
   if (!data) return null;
 
@@ -125,7 +166,16 @@ function SingleTable({ table, index }) {
         <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{pageLabel}</span>
         <span style={{ fontWeight: 600, fontSize: '15px' }}>{headerTitle}</span>
       </div>
-      {tableBody}
+      <div className="extract-split-layout">
+        <div className="extract-split-table">
+          {tableBody}
+        </div>
+        {fileId && pageIndex != null && (
+          <div className="extract-split-preview">
+            <PdfPreview fileId={fileId} pageIndex={pageIndex} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -171,7 +221,7 @@ export default function ExtractorTables({ extractedTables, fileId }) {
         </button>
       </div>
       {tables.map((table, idx) => (
-        <SingleTable key={idx} table={table} index={idx} />
+        <SingleTable key={idx} table={table} index={idx} fileId={fileId} />
       ))}
     </div>
   );
